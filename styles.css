@@ -483,12 +483,11 @@ h3 {
   left: auto;
   right: auto;
   bottom: auto;
-  height: clamp(320px, 28vw, 390px);
+  height: clamp(500px, 40vw, 620px);
   width: 100%;
-  margin-top: clamp(58px, 8vw, 104px);
-  display: flex;
-  align-items: stretch;
-  gap: 0;
+  max-width: 1480px;
+  margin: clamp(20px, 3.6vw, 48px) auto 0;
+  display: block;
   z-index: 3;
   perspective: 1000px;
   transform-style: preserve-3d;
@@ -498,15 +497,10 @@ h3 {
 }
 
 .tilt-card {
-  position: relative;
-  left: auto;
-  right: auto;
-  top: auto;
-  bottom: auto;
+  position: absolute;
   min-width: 0;
-  flex: 1 1 0;
-  height: 100%;
-  margin-left: clamp(-58px, -3.35vw, -30px);
+  height: 84%;
+  margin-left: 0;
   border-radius: 24px;
   padding: clamp(22px, 2.2vw, 32px);
   color: var(--ink);
@@ -529,10 +523,6 @@ h3 {
   animation-iteration-count: infinite, 1;
   animation-fill-mode: none, both;
   animation-delay: var(--float-delay, 0s), var(--enter-delay, 0s);
-}
-
-.hero-stack .tilt-card:first-child {
-  margin-left: 0;
 }
 
 .tilt-card::after {
@@ -644,11 +634,12 @@ h3 {
 
 .tilt-card.peach {
   background: #ffd6ae;
-  position: relative;
-  flex: 0 0 31%;
-  transform: rotate(4.6deg) translateY(18px);
+  left: 1%;
+  top: 12%;
+  width: 30%;
+  transform: rotate(4.6deg) translateY(0);
   transform-origin: center;
-  z-index: 4;
+  z-index: 8;
   --float-delay: 0.12s;
   --enter-delay: 0.12s;
   animation-name: cardFloatA, heroCardEnter;
@@ -665,12 +656,13 @@ h3 {
 .tilt-card.media {
   padding: 0;
   background: #eee;
-  position: relative;
-  flex: 0 0 30%;
-  height: 100%;
-  transform: rotate(-3deg) translateY(-8px);
+  left: 29%;
+  top: 0;
+  width: 31%;
+  height: 82%;
+  transform: rotate(-3deg) translateY(62px);
   transform-origin: center;
-  z-index: 5;
+  z-index: 4;
   --float-delay: 0s;
   --enter-delay: 0s;
   animation-name: cardFloatB, heroCardEnter;
@@ -681,7 +673,7 @@ h3 {
 }
 
 .tilt-card.media:hover {
-  transform: translateY(-10px) rotate(-1deg) scale(1.02);
+  transform: translateY(48px) rotate(-1deg) scale(1.02);
 }
 
 .tilt-card.media video {
@@ -700,12 +692,13 @@ h3 {
 
 .tilt-card.lavender {
   background: #d9d6fe;
-  position: relative;
-  flex: 0 0 31%;
-  height: 100%;
+  left: 52.5%;
+  top: 11%;
+  width: 30%;
+  height: 86%;
   transform: rotate(3.1deg) translateY(10px);
   transform-origin: center;
-  z-index: 3;
+  z-index: 7;
   --float-delay: 0.2s;
   --enter-delay: 0.24s;
   animation-name: cardFloatA, heroCardEnter;
@@ -726,12 +719,13 @@ h3 {
 
 .tilt-card.blue {
   background: #b2ddff;
-  position: relative;
-  flex: 0 0 31%;
-  height: 100%;
+  left: 70.8%;
+  top: 12%;
+  width: 31%;
+  height: 84%;
   transform: rotate(-2.4deg) translateY(12px);
   transform-origin: center;
-  z-index: 2;
+  z-index: 6;
   --float-delay: 0.3s;
   --enter-delay: 0.36s;
   animation-name: cardFloatB, heroCardEnter;
