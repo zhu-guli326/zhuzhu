@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>朱朱 | AI 设计工程师</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="./styles.css?v=zhu-135" />
+    <link rel="stylesheet" href="./styles.css?v=zhu-136" />
   </head>
   <body>
     <header class="topbar" aria-label="站点导航">
@@ -64,32 +64,25 @@
               <p>截图 / 设计稿 → 可执行 UI demo，可复用工作流。</p>
               <span class="card-action">查看案例</span>
             </a>
-            <a class="tilt-card media intro-tile" href="#home" aria-label="播放朱朱自我介绍视频" data-intro-tile>
+            <a class="tilt-card media intro-tile portrait-card" href="#home" aria-label="播放朱朱自我介绍视频" data-intro-tile>
               <span class="motion-hint">点按播放声音</span>
               <span class="play-orb" aria-hidden="true">›</span>
               <video class="intro-video" autoplay muted loop playsinline preload="metadata" poster="./screenshots/ocip-preview/frame_00000.jpg">
                 <source src="./assets/zhu/intro-video-audio.mp4" type="video/mp4" />
                 <source src="./assets/zhu/intro-video.mov" type="video/quicktime" />
               </video>
-              <div class="project-cover-card intro-cover-card">
-                <span>自我介绍</span>
-                <b>朱朱</b>
-                <p>把参考图和产品想法变成可点击 demo。</p>
-                <strong>AI</strong>
-                <small>设计工程师</small>
-              </div>
-            </a>
-            <a class="tilt-card blue" href="#project-hicolor">
-              <span class="card-kicker">项目 02</span>
-              <h2>hicolor</h2>
-              <p>照片拼贴网站，发布两个月访问量 2w+。</p>
-              <span class="card-action">查看产品</span>
             </a>
             <a class="tilt-card lavender" href="#project-cursor">
               <span class="card-kicker">项目 03</span>
               <h2>Cursor<br />Meetup</h2>
               <p>广州站策划 / 分享嘉宾，900+ 人报名。</p>
               <span class="card-action">查看活动</span>
+            </a>
+            <a class="tilt-card blue" href="#project-hicolor">
+              <span class="card-kicker">项目 02</span>
+              <h2>hicolor</h2>
+              <p>照片拼贴网站，发布两个月访问量 2w+。</p>
+              <span class="card-action">查看产品</span>
             </a>
           </div>
         </div>
@@ -131,27 +124,52 @@
             <p>
               为了解决“参考图 / 设计稿很难变成可执行界面”的问题，我设计并整理了这个 Codex Skill：把 UI 截图、设计稿、App 参考图转成可执行的网页或 App demo；保留交互文字、按钮和布局，复杂视觉资产再调用 image2。
             </p>
-            <div class="project-brief">
-              <div class="project-copy">
-                <span class="project-label">项目 01 / AI UI 工作流</span>
-                <h4>把参考图变成可点击 demo</h4>
-                <p>先拆界面，再判断代码和 image2 资产边界，最后用可打开页面和动图验收。</p>
-                <dl>
-                  <div><dt>目标</dt><dd>参考图 → 可点击 demo</dd></div>
-                  <div><dt>负责</dt><dd>工作流 / 前端 / image2 规则</dd></div>
-                  <div><dt>产出</dt><dd>Codex Skill + 示例 demo</dd></div>
-                  <div><dt>结果</dt><dd>GitHub 82star / 内容 2w+ 播放</dd></div>
-                </dl>
+            <div class="case-switcher image2-switcher" data-case-switcher="image2">
+              <div class="case-switcher-tabs" role="tablist" aria-label="image2_UI_skill 展示切换">
+                <button class="selected" type="button" role="tab" aria-selected="true" data-case-view-button="demo">Demo 结果</button>
+                <button type="button" role="tab" aria-selected="false" data-case-view-button="proof">传播验证</button>
               </div>
-              <figure class="image2-showcase">
-                <div class="image2-result-board">
-                  <img class="image2-result-demo" src="./assets/zhu/demo-preview.gif" alt="image2_UI_skill clickable demo preview" />
-                  <img class="image2-result-list" src="./assets/zhu/content-proof-image2-list.png" alt="image2_UI_skill content data list" />
-                  <img class="image2-result-pin" src="./assets/zhu/content-proof-image2-pin.png" alt="image2_UI_skill pinned video cover" />
-                  <img class="image2-result-post" src="./assets/zhu/content-proof-image2-ui.png" alt="image2_UI_skill social post result" />
+              <div class="project-brief case-view selected" data-case-view="demo">
+                <div class="project-copy">
+                  <span class="project-label">项目 01 / AI UI 工作流</span>
+                  <h4>把参考图变成可点击 demo</h4>
+                  <p>先拆界面，再判断代码和 image2 资产边界，最后用可打开页面和动图验收。</p>
+                  <dl>
+                    <div><dt>目标</dt><dd>参考图 → 可点击 demo</dd></div>
+                    <div><dt>负责</dt><dd>工作流 / 前端 / image2 规则</dd></div>
+                    <div><dt>产出</dt><dd>Codex Skill + 示例 demo</dd></div>
+                    <div><dt>结果</dt><dd>GitHub 82star / 内容 2w+ 播放</dd></div>
+                  </dl>
                 </div>
-                <figcaption>左侧展示可点击 demo 动图，右侧展示发布后的截图成果：置顶内容、列表数据和社媒播放反馈。</figcaption>
-              </figure>
+                <figure class="image2-showcase">
+                  <div class="image2-result-board image2-demo-board">
+                    <img class="image2-result-demo" src="./assets/zhu/demo-preview.gif" alt="image2_UI_skill clickable demo preview" />
+                    <img class="image2-result-post" src="./assets/zhu/content-proof-image2-ui.png" alt="image2_UI_skill social post result" />
+                  </div>
+                  <figcaption>可点击 demo 和发布封面互相切换，重点看从参考图到页面结果。</figcaption>
+                </figure>
+              </div>
+              <div class="project-brief case-view" data-case-view="proof" hidden>
+                <div class="project-copy">
+                  <span class="project-label">项目 01 / 传播验证</span>
+                  <h4>发布后有真实播放反馈</h4>
+                  <p>不是只展示概念图，而是把上线后的列表数据、置顶内容和社媒播放结果放在一起验证。</p>
+                  <dl>
+                    <div><dt>内容</dt><dd>全网 2w+ 播放</dd></div>
+                    <div><dt>置顶</dt><dd>12.5w 播放展示</dd></div>
+                    <div><dt>列表</dt><dd>3.7w / 1.0w 单条播放</dd></div>
+                    <div><dt>仓库</dt><dd>GitHub 82star</dd></div>
+                  </dl>
+                </div>
+                <figure class="image2-showcase">
+                  <div class="image2-result-board image2-proof-board">
+                    <img class="image2-result-list" src="./assets/zhu/content-proof-image2-list.png" alt="image2_UI_skill content data list" />
+                    <img class="image2-result-pin" src="./assets/zhu/content-proof-image2-pin.png" alt="image2_UI_skill pinned video cover" />
+                    <img class="image2-result-post" src="./assets/zhu/content-proof-image2-ui.png" alt="image2_UI_skill social post result" />
+                  </div>
+                  <figcaption>发布后的截图成果：列表数据、置顶内容和社媒播放反馈。</figcaption>
+                </figure>
+              </div>
             </div>
             <a class="read-chip" href="https://github.com/zhu-guli326/image2_UI_skill" target="_blank" rel="noopener noreferrer">打开 GitHub 仓库</a>
           </article>
@@ -495,6 +513,6 @@
       <span>AI</span>
       <span>UI</span>
     </div>
-    <script src="./script.js?v=zhu-135"></script>
+    <script src="./script.js?v=zhu-136"></script>
   </body>
 </html>

@@ -488,12 +488,13 @@ h3 {
   margin-top: clamp(58px, 8vw, 104px);
   display: flex;
   align-items: stretch;
-  gap: clamp(12px, 1.4vw, 22px);
+  gap: 0;
   z-index: 3;
   perspective: 1000px;
   transform-style: preserve-3d;
   transform: none;
   transition: transform 0.55s var(--ease-out);
+  isolation: isolate;
 }
 
 .tilt-card {
@@ -505,6 +506,7 @@ h3 {
   min-width: 0;
   flex: 1 1 0;
   height: 100%;
+  margin-left: clamp(-58px, -3.35vw, -30px);
   border-radius: 24px;
   padding: clamp(22px, 2.2vw, 32px);
   color: var(--ink);
@@ -527,6 +529,10 @@ h3 {
   animation-iteration-count: infinite, 1;
   animation-fill-mode: none, both;
   animation-delay: var(--float-delay, 0s), var(--enter-delay, 0s);
+}
+
+.hero-stack .tilt-card:first-child {
+  margin-left: 0;
 }
 
 .tilt-card::after {
@@ -582,50 +588,53 @@ h3 {
 
 .motion-hint {
   position: absolute;
-  left: 50%;
-  top: -38px;
+  left: 18px;
+  top: 18px;
   z-index: 8;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
   color: var(--green);
   font-weight: 900;
-  font-size: 15px;
-  transform: translateX(-50%) rotate(-2deg);
+  font-size: 12px;
+  line-height: 1;
+  transform: rotate(-2deg);
   white-space: nowrap;
-  opacity: 0.86;
+  opacity: 0.92;
   pointer-events: none;
+  box-shadow: 0 10px 24px rgba(16, 24, 40, 0.13);
+  backdrop-filter: blur(8px);
 }
 
 .motion-hint::after {
-  content: "\2198";
-  position: absolute;
-  right: -28px;
-  top: 8px;
-  font-size: 22px;
+  display: none;
 }
 
 .play-orb {
   position: absolute;
-  left: 50%;
-  top: 50%;
+  left: auto;
+  right: 16px;
+  top: 16px;
   z-index: 8;
-  width: 62px;
-  height: 62px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.82);
   color: var(--green);
-  font-size: 42px;
+  font-size: 27px;
   line-height: 1;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 16px 38px rgba(16, 24, 40, 0.18);
+  transform: none;
+  box-shadow: 0 12px 28px rgba(16, 24, 40, 0.15);
   backdrop-filter: blur(10px);
-  animation: playPulse 2.8s ease-in-out infinite;
+  animation: none;
   pointer-events: none;
 }
 
 .intro-tile.is-playing-sound .play-orb {
   opacity: 0;
-  transform: translate(-50%, -50%) scale(0.82);
+  transform: scale(0.82);
 }
 
 .intro-tile.is-playing-sound .motion-hint {
@@ -636,7 +645,7 @@ h3 {
 .tilt-card.peach {
   background: #ffd6ae;
   position: relative;
-  flex-basis: 30%;
+  flex: 0 0 31%;
   transform: rotate(4.6deg) translateY(18px);
   transform-origin: center;
   z-index: 4;
@@ -657,9 +666,9 @@ h3 {
   padding: 0;
   background: #eee;
   position: relative;
-  flex-basis: 27%;
+  flex: 0 0 30%;
   height: 100%;
-  transform: rotate(-3.5deg) translateY(-10px);
+  transform: rotate(-3deg) translateY(-8px);
   transform-origin: center;
   z-index: 5;
   --float-delay: 0s;
@@ -692,9 +701,9 @@ h3 {
 .tilt-card.lavender {
   background: #d9d6fe;
   position: relative;
-  flex-basis: 25%;
+  flex: 0 0 31%;
   height: 100%;
-  transform: rotate(3.2deg) translateY(20px);
+  transform: rotate(3.1deg) translateY(10px);
   transform-origin: center;
   z-index: 3;
   --float-delay: 0.2s;
@@ -718,9 +727,9 @@ h3 {
 .tilt-card.blue {
   background: #b2ddff;
   position: relative;
-  flex-basis: 26%;
+  flex: 0 0 31%;
   height: 100%;
-  transform: rotate(-2.6deg) translateY(34px);
+  transform: rotate(-2.4deg) translateY(12px);
   transform-origin: center;
   z-index: 2;
   --float-delay: 0.3s;
@@ -1510,6 +1519,53 @@ h3 {
     linear-gradient(135deg, #101917, #050706);
   border: 1px solid rgba(20, 20, 20, 0.12);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.image2-switcher .case-switcher-tabs {
+  margin-bottom: 22px;
+}
+
+.image2-switcher .project-brief {
+  margin-top: 0;
+}
+
+.image2-demo-board {
+  grid-template-columns: minmax(240px, 0.88fr) minmax(240px, 1fr);
+  grid-template-rows: 1fr;
+  align-items: center;
+}
+
+.image2-demo-board .image2-result-demo {
+  grid-column: 1;
+  grid-row: 1;
+  max-height: 450px;
+}
+
+.image2-demo-board .image2-result-post {
+  grid-column: 2;
+  grid-row: 1;
+  max-height: 450px;
+}
+
+.image2-proof-board {
+  grid-template-columns: minmax(0, 1.2fr) minmax(210px, 0.62fr) minmax(210px, 0.62fr);
+  grid-template-rows: 1fr;
+}
+
+.image2-proof-board .image2-result-list {
+  grid-column: 1;
+  grid-row: 1;
+  max-height: 440px;
+}
+
+.image2-proof-board .image2-result-pin {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.image2-proof-board .image2-result-post {
+  grid-column: 3;
+  grid-row: 1;
 }
 
 .image2-result-board img {
@@ -4997,6 +5053,7 @@ h3 {
     min-width: 300px;
     height: auto;
     min-height: 340px;
+    margin-left: 0;
     animation: none;
     scroll-snap-align: start;
   }
@@ -5372,6 +5429,22 @@ h3 {
   .image2-result-pin,
   .image2-result-post {
     object-fit: contain;
+  }
+
+  .image2-demo-board,
+  .image2-proof-board {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+
+  .image2-demo-board .image2-result-demo,
+  .image2-demo-board .image2-result-post,
+  .image2-proof-board .image2-result-list,
+  .image2-proof-board .image2-result-pin,
+  .image2-proof-board .image2-result-post {
+    grid-column: auto;
+    grid-row: auto;
+    max-height: none;
   }
 
   .hicolor-gallery-board {
@@ -5832,6 +5905,7 @@ h3 {
     max-width: 330px;
     height: auto;
     min-height: 300px;
+    margin-left: 0;
     padding: 24px;
     scroll-snap-align: start;
   }
