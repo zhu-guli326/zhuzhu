@@ -1509,10 +1509,16 @@ h3 {
   padding: 14px;
   border-radius: 16px;
   background:
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 16px),
-    linear-gradient(135deg, #101917, #050706);
-  border: 1px solid rgba(20, 20, 20, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    radial-gradient(circle at 12% 12%, rgba(255, 216, 0, 0.14), transparent 24%),
+    radial-gradient(circle at 90% 86%, rgba(178, 221, 255, 0.2), transparent 30%),
+    linear-gradient(90deg, rgba(2, 89, 78, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(2, 89, 78, 0.035) 1px, transparent 1px),
+    #fffefa;
+  background-size: auto, auto, 38px 38px, 38px 38px, auto;
+  border: 1px solid rgba(2, 89, 78, 0.12);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.86),
+    0 18px 48px rgba(16, 24, 40, 0.08);
 }
 
 .image2-switcher .case-switcher-tabs {
@@ -1570,7 +1576,8 @@ h3 {
   object-fit: contain;
   border-radius: 12px;
   background: #fffefa;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(2, 89, 78, 0.08);
+  box-shadow: 0 14px 34px rgba(16, 24, 40, 0.1);
 }
 
 .image2-result-list {
