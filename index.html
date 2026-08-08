@@ -7,234 +7,391 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg: #09090b;
-      --panel: #121216;
-      --panel-soft: #18181d;
-      --line: rgba(255,255,255,.11);
-      --line-strong: rgba(255,255,255,.18);
-      --text: #f4f1eb;
-      --muted: rgba(244,241,235,.68);
-      --faint: rgba(244,241,235,.46);
-      --accent: #ff7a5f;
-      --accent-2: #ffbf4d;
-      --cyan: #5fd7ff;
-      --radius: 16px;
+      --page: #eef0eb;
+      --surface: #f7f8f4;
+      --card: #ffffff;
+      --ink: #070b09;
+      --muted: #5d665f;
+      --faint: #8a928b;
+      --line: rgba(10, 22, 16, .10);
+      --line-strong: rgba(10, 22, 16, .18);
+      --green: #073b2d;
+      --green-2: #0d4a39;
+      --lime: #c7f15b;
+      --soft-lime: #e7ff9d;
+      --shadow: 0 26px 80px rgba(18, 34, 26, .12);
+      --radius-xl: 24px;
+      --radius-lg: 18px;
+      --radius-md: 14px;
     }
     html, body { min-height: 100%; }
     body {
       min-height: 100dvh;
-      background:
-        linear-gradient(180deg, rgba(255,122,95,.10), transparent 300px),
-        radial-gradient(760px 420px at 86% 12%, rgba(95,215,255,.12), transparent 64%),
-        var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      padding: 20px;
+      background: var(--page);
+      color: var(--ink);
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      padding: 28px;
     }
     button, input, select { font: inherit; }
     button {
       appearance: none;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,.055);
-      color: var(--text);
       min-height: 44px;
-      padding: 10px 16px;
+      border: 1px solid var(--line);
       border-radius: 999px;
-      cursor: pointer;
+      background: #fff;
+      color: var(--ink);
+      padding: 10px 18px;
       font-size: 14px;
-      font-weight: 700;
-      transition: transform .12s ease, border-color .12s ease, background .12s ease;
+      font-weight: 750;
+      cursor: pointer;
+      transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
     }
     button:hover:not(:disabled) {
       transform: translateY(-1px);
       border-color: var(--line-strong);
-      background: rgba(255,255,255,.09);
+      box-shadow: 0 10px 24px rgba(12, 30, 22, .08);
     }
     button:active:not(:disabled) { transform: translateY(0); }
     button:disabled { cursor: default; opacity: .42; }
     button.primary {
-      border: 0;
-      color: #17110c;
-      background: linear-gradient(135deg, var(--accent), var(--accent-2));
-      box-shadow: 0 18px 42px -28px var(--accent);
+      border-color: transparent;
+      background: var(--green);
+      color: #fff;
+      box-shadow: 0 18px 32px rgba(7, 59, 45, .20);
     }
+    button.primary:hover:not(:disabled) { background: var(--green-2); }
     input[type="file"],
     input[type="number"],
     select {
       width: 100%;
-      min-height: 42px;
+      min-height: 44px;
       border: 1px solid var(--line);
-      border-radius: 12px;
-      background: rgba(0,0,0,.26);
-      color: var(--text);
-      padding: 10px 12px;
+      border-radius: 999px;
+      background: #fff;
+      color: var(--ink);
+      padding: 10px 14px;
       font-size: 13px;
     }
-    input[type="range"] { width: 100%; accent-color: var(--accent); }
-    select option { background: #17171c; color: var(--text); }
-    .page { width: min(1280px, 100%); margin: 0 auto; }
+    input[type="file"] { border-radius: 14px; }
+    input[type="number"] { font-variant-numeric: tabular-nums; }
+    input[type="range"] {
+      width: 100%;
+      height: 28px;
+      accent-color: var(--green);
+    }
+    select option { background: #fff; color: var(--ink); }
+    .page { width: min(1440px, 100%); margin: 0 auto; }
+    .shell {
+      position: relative;
+      overflow: hidden;
+      min-height: calc(100dvh - 56px);
+      border-radius: 28px;
+      background:
+        linear-gradient(rgba(8, 29, 22, .055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(8, 29, 22, .055) 1px, transparent 1px),
+        radial-gradient(circle at 20% 12%, rgba(199, 241, 91, .34), transparent 20%),
+        radial-gradient(circle at 80% 10%, rgba(255, 255, 255, .92), transparent 24%),
+        var(--surface);
+      background-size: 72px 72px, 72px 72px, auto, auto, auto;
+      box-shadow: var(--shadow);
+      padding: 28px;
+    }
+    .shell::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0;
+      height: 160px;
+      background: linear-gradient(transparent, rgba(247, 248, 244, .96) 72%, var(--surface));
+      pointer-events: none;
+    }
     .topbar {
-      height: 64px;
-      display: flex;
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
       align-items: center;
-      justify-content: space-between;
-      gap: 18px;
-      margin-bottom: 18px;
+      gap: 16px;
+      margin-bottom: 52px;
     }
     .brand {
       display: inline-flex;
       align-items: center;
-      gap: 10px;
-      font-weight: 800;
-      letter-spacing: .01em;
+      gap: 12px;
+      width: fit-content;
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 0;
     }
     .brand-mark {
-      width: 34px;
-      height: 26px;
       position: relative;
-      border: 1px solid var(--line-strong);
-      border-radius: 8px;
-      background: linear-gradient(135deg, rgba(255,122,95,.24), rgba(95,215,255,.12));
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      background: var(--lime);
+      box-shadow: inset 0 -6px 16px rgba(7, 59, 45, .12);
     }
-    .brand-mark::before,
+    .brand-mark::before {
+      content: "";
+      position: absolute;
+      inset: 11px 9px;
+      border: 3px solid var(--green);
+      border-top: 0;
+      transform: skewX(-14deg) rotate(-8deg);
+    }
     .brand-mark::after {
       content: "";
       position: absolute;
-      inset: 7px;
-      border-top: 2px solid var(--accent-2);
-      border-bottom: 2px solid var(--cyan);
-      transform: skewX(-18deg);
+      width: 9px;
+      height: 9px;
+      right: 10px;
+      top: 10px;
+      border-radius: 50%;
+      background: var(--green);
     }
-    .nav-note {
-      color: var(--faint);
+    .nav-pills {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-height: 48px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .76);
+      padding: 5px;
+      box-shadow: 0 12px 30px rgba(12, 30, 22, .06);
+      backdrop-filter: blur(12px);
+    }
+    .nav-pills a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 38px;
+      padding: 0 18px;
+      border-radius: 999px;
+      color: #2f3933;
+      text-decoration: none;
       font-size: 13px;
+      font-weight: 700;
       white-space: nowrap;
     }
+    .nav-pills a.active {
+      background: var(--green);
+      color: #fff;
+    }
+    .nav-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .nav-actions button {
+      min-height: 42px;
+      padding-inline: 18px;
+      font-size: 13px;
+    }
     .hero {
+      position: relative;
+      z-index: 1;
       display: grid;
-      grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
-      gap: 22px;
-      align-items: stretch;
-      margin-bottom: 18px;
-    }
-    @media (max-width: 980px) {
-      body { padding: 14px; }
-      .hero { grid-template-columns: 1fr; }
-      .topbar { height: auto; align-items: flex-start; }
-      .nav-note { white-space: normal; text-align: right; }
-    }
-    .intro,
-    .tool-panel,
-    .preview-panel {
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: rgba(18,18,22,.82);
-      backdrop-filter: blur(14px);
+      grid-template-columns: minmax(0, 1fr) minmax(360px, 520px);
+      gap: 28px;
+      align-items: start;
     }
     .intro {
-      padding: 22px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      min-height: 420px;
+      min-height: 620px;
+      padding: 78px 34px 34px;
+      text-align: center;
     }
     .eyebrow {
-      width: fit-content;
-      margin-bottom: 14px;
-      border: 1px solid rgba(255,191,77,.28);
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 26px;
+      border: 1px solid rgba(7, 59, 45, .12);
       border-radius: 999px;
-      color: var(--accent-2);
-      background: rgba(255,191,77,.08);
-      padding: 6px 10px;
-      font-size: 12px;
-      font-weight: 800;
+      background: rgba(255, 255, 255, .72);
+      color: #354038;
+      padding: 8px 13px;
+      font-size: 13px;
+      font-weight: 750;
+      box-shadow: 0 10px 26px rgba(12, 30, 22, .06);
+    }
+    .eyebrow::before {
+      content: "";
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--lime);
+      box-shadow: inset 0 0 0 5px #eaffb8;
     }
     h1 {
-      max-width: 9ch;
-      margin-bottom: 16px;
-      font-size: clamp(42px, 8vw, 76px);
-      line-height: .95;
+      max-width: 900px;
+      margin: 0 auto 22px;
+      font-size: clamp(54px, 7vw, 108px);
+      line-height: .98;
       letter-spacing: 0;
+      text-wrap: balance;
     }
     .sub {
-      max-width: 36ch;
-      color: var(--muted);
-      font-size: 15px;
+      max-width: 620px;
+      margin: 0 auto;
+      color: #445049;
+      font-size: 16px;
       line-height: 1.65;
+      text-wrap: pretty;
     }
-    .trust-row {
-      display: grid;
-      gap: 8px;
+    .hero-actions {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 12px;
       margin-top: 26px;
+    }
+    .floating-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      max-width: 980px;
+      margin: 62px auto 0;
+      text-align: left;
+    }
+    .stat-card {
+      min-height: 120px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: rgba(255,255,255,.84);
+      padding: 20px;
+      box-shadow: 0 18px 40px rgba(12, 30, 22, .08);
+    }
+    .stat-card strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--green);
+      font-size: 34px;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .composer-board {
+      display: grid;
+      gap: 14px;
+    }
+    .preview-panel,
+    .tool-panel,
+    .note {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      background: rgba(255, 255, 255, .88);
+      box-shadow: 0 20px 54px rgba(12, 30, 22, .10);
+      backdrop-filter: blur(14px);
+    }
+    .preview-panel {
+      padding: 14px;
+      min-height: 440px;
+    }
+    .panel-topline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      padding: 2px 4px;
+    }
+    .panel-topline b { font-size: 14px; }
+    .panel-topline span {
       color: var(--faint);
       font-size: 12px;
-      line-height: 1.6;
-    }
-    .trust-row b { color: var(--text); font-weight: 750; }
-    .preview-panel {
-      min-height: 420px;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
     }
     #stage {
       width: 100%;
-      min-height: 100%;
       display: flex;
-      flex: 1;
       flex-direction: column;
       gap: 12px;
     }
     .empty-preview {
-      flex: 1;
       min-height: 300px;
       display: grid;
       place-items: center;
-      border: 1px dashed rgba(255,255,255,.18);
-      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 20px;
       background:
-        linear-gradient(135deg, rgba(255,122,95,.08), rgba(95,215,255,.06)),
-        rgba(255,255,255,.025);
+        linear-gradient(rgba(7, 59, 45, .055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(7, 59, 45, .055) 1px, transparent 1px),
+        linear-gradient(135deg, #f9faf5, #eef4e6);
+      background-size: 42px 42px, 42px 42px, auto;
       color: var(--muted);
       text-align: center;
-      padding: 24px;
+      padding: 26px;
     }
     .empty-preview b {
       display: block;
       margin-bottom: 8px;
-      color: var(--text);
-      font-size: 17px;
+      color: var(--ink);
+      font-size: 19px;
+    }
+    .empty-visual {
+      position: relative;
+      width: min(260px, 100%);
+      aspect-ratio: 1.55;
+      margin: 0 auto 22px;
+      border-radius: 22px;
+      background: var(--green);
+      box-shadow: 0 22px 44px rgba(7, 59, 45, .20);
+    }
+    .empty-visual::before,
+    .empty-visual::after {
+      content: "";
+      position: absolute;
+      border-radius: 16px;
+      background: var(--lime);
+    }
+    .empty-visual::before {
+      width: 92px;
+      height: 58px;
+      left: 24px;
+      top: 24px;
+      transform: rotate(-8deg);
+    }
+    .empty-visual::after {
+      width: 116px;
+      height: 72px;
+      right: 24px;
+      bottom: 22px;
+      background: #fff;
+      transform: rotate(5deg);
     }
     .canvas-wrap {
       position: relative;
       display: none;
       width: 100%;
+      overflow: hidden;
       border: 1px solid var(--line);
-      border-radius: 14px;
+      border-radius: 20px;
       padding: 8px;
-      background: #050507;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+      background: #0a0c0b;
     }
     .canvas-wrap.ready { display: block; }
     canvas {
       display: block;
       width: 100%;
-      border-radius: 10px;
+      border-radius: 14px;
       background: #000;
     }
     .duration-badge {
       position: absolute;
-      top: 16px;
-      right: 16px;
-      min-width: 168px;
+      top: 18px;
+      right: 18px;
+      min-width: 178px;
       display: grid;
       gap: 3px;
-      padding: 9px 11px;
-      border: 1px solid rgba(255,255,255,.16);
-      border-radius: 12px;
-      background: rgba(8,8,11,.74);
-      color: var(--text);
+      padding: 10px 12px;
+      border: 1px solid rgba(255,255,255,.20);
+      border-radius: 14px;
+      background: rgba(7, 59, 45, .82);
+      color: #fff;
       font-size: 12px;
       line-height: 1.35;
       font-variant-numeric: tabular-nums;
@@ -242,7 +399,7 @@
       pointer-events: none;
     }
     .duration-badge b { font-size: 13px; }
-    .duration-badge span { color: var(--muted); }
+    .duration-badge span { color: rgba(255,255,255,.70); }
     video { display: none; }
     #controls {
       display: flex;
@@ -256,7 +413,7 @@
       max-width: 100%;
       border: 1px solid var(--line);
       border-radius: 999px;
-      background: rgba(255,255,255,.045);
+      background: #f3f5ef;
       color: var(--muted);
       padding: 8px 14px;
       font-size: 13px;
@@ -269,15 +426,12 @@
       height: 12px;
       margin-right: 8px;
       border-radius: 50%;
-      border: 2px solid rgba(255,191,77,.28);
-      border-top-color: var(--accent-2);
+      border: 2px solid rgba(7, 59, 45, .18);
+      border-top-color: var(--green);
       animation: spin .8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .tool-panel {
-      padding: 18px;
-      margin-bottom: 18px;
-    }
+    .tool-panel { padding: 18px; }
     .panel-title {
       display: flex;
       justify-content: space-between;
@@ -286,7 +440,7 @@
       margin-bottom: 14px;
     }
     .panel-title h2 {
-      font-size: 18px;
+      font-size: 20px;
       letter-spacing: 0;
     }
     .panel-title span {
@@ -299,22 +453,21 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
     }
-    @media (max-width: 760px) { .uploader { grid-template-columns: 1fr; } }
     .upload {
       border: 1px solid var(--line);
-      border-radius: 14px;
-      background: var(--panel-soft);
+      border-radius: var(--radius-lg);
+      background: #f6f7f2;
       padding: 14px;
     }
     .field-label {
       margin-bottom: 8px;
-      color: var(--text);
+      color: var(--ink);
       font-size: 13px;
-      font-weight: 800;
+      font-weight: 850;
     }
     .hint {
       margin-top: 9px;
-      color: var(--faint);
+      color: var(--muted);
       font-size: 12px;
       line-height: 1.5;
     }
@@ -328,18 +481,17 @@
       justify-content: space-between;
       gap: 12px;
       margin-bottom: 10px;
-      color: var(--text);
+      color: var(--ink);
       font-size: 13px;
-      font-weight: 800;
+      font-weight: 850;
     }
     .timeline-head span:last-child {
       color: var(--muted);
-      font-weight: 650;
+      font-weight: 700;
       font-variant-numeric: tabular-nums;
     }
     .controls-grid {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
       gap: 10px;
       align-items: end;
       margin-top: 12px;
@@ -347,21 +499,16 @@
     .invert-row { grid-template-columns: 1.2fr 1fr auto 1fr auto auto; }
     .effect-row { grid-template-columns: 1.2fr 1fr auto 1fr auto auto; }
     .effect-row.compact { grid-template-columns: auto 1fr auto; }
-    @media (max-width: 980px) {
-      .controls-grid,
-      .invert-row,
-      .effect-row,
-      .effect-row.compact { grid-template-columns: 1fr 1fr; }
-    }
     .controls-grid label {
       display: flex;
       align-items: center;
       gap: 8px;
-      min-height: 42px;
-      color: var(--text);
+      min-height: 44px;
+      color: var(--ink);
       font-size: 13px;
-      font-weight: 700;
+      font-weight: 800;
     }
+    input[type="checkbox"] { accent-color: var(--green); }
     .mini {
       align-self: center;
       color: var(--faint);
@@ -393,10 +540,11 @@
       min-height: 34px;
       border: 1px solid var(--line);
       border-radius: 999px;
-      background: rgba(255,255,255,.05);
-      color: var(--text);
+      background: #f4f7ed;
+      color: var(--green);
       padding: 6px 8px 6px 12px;
       font-size: 12px;
+      font-weight: 750;
       font-variant-numeric: tabular-nums;
     }
     .effect-chip button {
@@ -404,160 +552,245 @@
       min-height: 22px;
       height: 22px;
       padding: 0;
-      color: var(--muted);
+      color: var(--green);
+      background: rgba(7, 59, 45, .08);
     }
     .below {
+      position: relative;
+      z-index: 1;
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      margin-bottom: 24px;
+      gap: 14px;
+      margin: 22px 0 12px;
     }
-    @media (max-width: 860px) { .below { grid-template-columns: 1fr; } }
     .note {
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      background: rgba(255,255,255,.035);
-      padding: 14px;
+      min-height: 132px;
+      padding: 20px;
       color: var(--muted);
       font-size: 13px;
       line-height: 1.55;
     }
     .note b {
       display: block;
-      margin-bottom: 4px;
-      color: var(--text);
+      margin-bottom: 8px;
+      color: var(--ink);
+      font-size: 18px;
+    }
+    .note:nth-child(2) {
+      background: var(--green);
+      color: rgba(255,255,255,.72);
+    }
+    .note:nth-child(2) b { color: #fff; }
+    .note:nth-child(2)::before {
+      content: "";
+      display: block;
+      width: 44px;
+      height: 44px;
+      margin-bottom: 16px;
+      border-radius: 999px;
+      background: var(--lime);
     }
     footer {
-      padding: 8px 0 24px;
+      position: relative;
+      z-index: 1;
+      padding: 18px 0 4px;
       color: var(--faint);
       font-size: 12px;
       text-align: center;
+    }
+    @media (max-width: 1160px) {
+      .topbar { grid-template-columns: 1fr; }
+      .nav-pills { width: fit-content; }
+      .nav-actions { justify-content: flex-start; }
+      .hero { grid-template-columns: 1fr; }
+      .intro { min-height: auto; padding-top: 42px; }
+    }
+    @media (max-width: 760px) {
+      body { padding: 12px; }
+      .shell { border-radius: 20px; padding: 16px; }
+      .topbar { margin-bottom: 30px; }
+      .nav-pills { max-width: 100%; overflow-x: auto; }
+      .nav-actions { display: none; }
+      h1 { font-size: 44px; }
+      .floating-strip,
+      .below,
+      .uploader { grid-template-columns: 1fr; }
+      .invert-row,
+      .effect-row,
+      .effect-row.compact { grid-template-columns: 1fr 1fr; }
+      .preview-panel,
+      .tool-panel,
+      .note { border-radius: 18px; }
+    }
+    @media (max-width: 520px) {
+      .intro { padding-inline: 4px; }
+      .floating-strip { margin-top: 34px; }
+      .invert-row,
+      .effect-row,
+      .effect-row.compact { grid-template-columns: 1fr; }
+      .mini { display: none; }
+      .duration-badge {
+        position: static;
+        margin-top: 8px;
+        background: var(--green);
+      }
     }
   </style>
 </head>
 <body>
   <div class="page">
-    <nav class="topbar" aria-label="主导航">
-      <div class="brand">
-        <span class="brand-mark" aria-hidden="true"></span>
-        <span>FrameLab</span>
-      </div>
-      <div class="nav-note">浏览器本地处理 · 不上传素材 · 面向短视频创作</div>
-    </nav>
+    <div class="shell">
+      <nav class="topbar" aria-label="主导航">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span>FrameLab</span>
+        </div>
+        <div class="nav-pills">
+          <a class="active" href="#compose">创作台</a>
+          <a href="#timeline">时间轴</a>
+          <a href="#effects">特效</a>
+          <a href="#export">导出</a>
+        </div>
+        <div class="nav-actions">
+          <button type="button">本地处理</button>
+          <button class="primary" type="button">开始合成</button>
+        </div>
+      </nav>
 
-    <main>
-      <section class="hero" aria-label="手势取景合成工具">
-        <div class="intro">
-          <div>
-            <div class="eyebrow">Finger Frame Composer</div>
+      <main>
+        <section class="hero" id="compose" aria-label="手势取景合成工具">
+          <div class="intro">
+            <div class="eyebrow">无需 API · 两段视频即可开始</div>
             <h1>把画面放进手势框</h1>
             <p class="sub">
-              上传原片和风格片，自动追踪双手取景框，预览、反向蒙版、添加特效，并导出成片。
+              上传原片和风格片，自动追踪双手取景框，直接预览、调蒙版、加特效并导出成片。
             </p>
-          </div>
-          <div class="trust-row">
-            <span><b>两段素材即可开始</b> 原片用于追踪手势，风格片作为框内画面。</span>
-            <span><b>适合发布前微调</b> 可按时间段反转蒙版，或加入短促的视觉片段。</span>
-          </div>
-        </div>
+            <div class="hero-actions">
+              <button class="primary" type="button" onclick="document.getElementById('orig-file').click()">上传原片</button>
+              <button type="button" onclick="document.getElementById('sty-file').click()">上传风格片</button>
+            </div>
 
-        <div class="preview-panel">
-          <div id="stage">
-            <video id="orig" playsinline muted></video>
-            <video id="sty" playsinline muted crossorigin="anonymous"></video>
-            <div id="empty-preview" class="empty-preview">
-              <div>
-                <b>等待素材</b>
-                上传两段视频后，这里会显示实时预览。
+            <div class="floating-strip" aria-label="功能概览">
+              <div class="stat-card">
+                <strong>2</strong>
+                <span>上传两段视频，原片追踪手势，风格片进入框内。</span>
+              </div>
+              <div class="stat-card">
+                <strong>0</strong>
+                <span>无需 API key，素材在浏览器本地处理。</span>
+              </div>
+              <div class="stat-card">
+                <strong>K</strong>
+                <span>定位时长后设置反向蒙版和特效片段。</span>
               </div>
             </div>
-            <div id="preview-area" class="canvas-wrap">
-              <canvas id="canvas"></canvas>
-              <div class="duration-badge">
-                <b id="duration-main">00:00.00 / 00:00.00</b>
-                <span id="duration-detail">原始 00:00.00 · 风格 00:00.00</span>
+          </div>
+
+          <div class="composer-board">
+            <div class="preview-panel">
+              <div class="panel-topline">
+                <b>实时预览</b>
+                <span id="export">FrameLab Output</span>
+              </div>
+              <div id="stage">
+                <video id="orig" playsinline muted></video>
+                <video id="sty" playsinline muted crossorigin="anonymous"></video>
+                <div id="empty-preview" class="empty-preview">
+                  <div>
+                    <div class="empty-visual" aria-hidden="true"></div>
+                    <b>等待素材</b>
+                    上传两段视频后，这里会显示实时预览。
+                  </div>
+                </div>
+                <div id="preview-area" class="canvas-wrap">
+                  <canvas id="canvas"></canvas>
+                  <div class="duration-badge">
+                    <b id="duration-main">00:00.00 / 00:00.00</b>
+                    <span id="duration-detail">原始 00:00.00 · 风格 00:00.00</span>
+                  </div>
+                </div>
+                <div id="controls">
+                  <button id="btn-play" class="primary" disabled>预览</button>
+                  <button id="btn-export" disabled>导出</button>
+                </div>
+                <div id="status"></div>
               </div>
             </div>
-            <div id="controls">
-              <button id="btn-play" class="primary" disabled>预览</button>
-              <button id="btn-export" disabled>导出</button>
-            </div>
-            <div id="status"></div>
-          </div>
-        </div>
-      </section>
 
-      <section class="tool-panel" aria-label="合成控制">
-        <div class="panel-title">
-          <h2>素材与时间轴</h2>
-          <span>当前页面只使用本次选择的文件，刷新后不会保留视频。</span>
-        </div>
+            <section class="tool-panel" aria-label="合成控制">
+              <div class="panel-title">
+                <h2>素材与时间轴</h2>
+                <span>刷新后不会保留视频</span>
+              </div>
 
-        <div class="uploader">
-          <div class="upload">
-            <div class="field-label">原始视频</div>
-            <input id="orig-file" type="file" accept="video/*" autocomplete="off" />
-            <div class="hint">用于手部追踪和最终时间轴，建议画面中双手清晰可见。</div>
-          </div>
-          <div class="upload">
-            <div class="field-label">风格视频</div>
-            <input id="sty-file" type="file" accept="video/*" autocomplete="off" />
-            <div class="hint">作为手势框内画面，最好和原始视频时长一致。</div>
-          </div>
-        </div>
+              <div class="uploader">
+                <div class="upload">
+                  <div class="field-label">原始视频</div>
+                  <input id="orig-file" type="file" accept="video/*" autocomplete="off" />
+                  <div class="hint">用于手部追踪和最终时间轴，建议双手清晰。</div>
+                </div>
+                <div class="upload">
+                  <div class="field-label">风格视频</div>
+                  <input id="sty-file" type="file" accept="video/*" autocomplete="off" />
+                  <div class="hint">作为手势框内画面，最好和原片时长一致。</div>
+                </div>
+              </div>
 
-        <div class="timeline" id="timeline">
-          <div class="timeline-head">
-            <span>时间定位</span>
-            <span id="time-readout">00:00.00 / 00:00.00</span>
-          </div>
-          <input id="scrub" type="range" min="0" max="0" step="0.01" value="0" disabled />
+              <div class="timeline" id="timeline">
+                <div class="timeline-head">
+                  <span>时间定位</span>
+                  <span id="time-readout">00:00.00 / 00:00.00</span>
+                </div>
+                <input id="scrub" type="range" min="0" max="0" step="0.01" value="0" disabled />
 
-          <div class="controls-grid invert-row">
-            <label><input id="invert-enabled" type="checkbox" /> 反向蒙版</label>
-            <input id="invert-start" type="number" min="0" step="0.01" value="0" aria-label="反向蒙版起点" />
-            <span class="mini">到</span>
-            <input id="invert-end" type="number" min="0" step="0.01" value="0" aria-label="反向蒙版终点" />
-            <button id="btn-set-start" type="button">设为起点</button>
-            <button id="btn-set-end" type="button">设为终点</button>
-          </div>
-          <div class="hint">反向蒙版区间内会把原视频和风格视频对调。</div>
+                <div class="controls-grid invert-row">
+                  <label><input id="invert-enabled" type="checkbox" /> 反向蒙版</label>
+                  <input id="invert-start" type="number" min="0" step="0.01" value="0" aria-label="反向蒙版起点" />
+                  <span class="mini">到</span>
+                  <input id="invert-end" type="number" min="0" step="0.01" value="0" aria-label="反向蒙版终点" />
+                  <button id="btn-set-start" type="button">设为起点</button>
+                  <button id="btn-set-end" type="button">设为终点</button>
+                </div>
+                <div class="hint">反向蒙版区间内会把原视频和风格视频对调。</div>
 
-          <div class="section-break"></div>
-          <div class="timeline-head">
-            <span>特效片段</span>
-            <span>可叠加多个时间段</span>
+                <div class="section-break" id="effects"></div>
+                <div class="timeline-head">
+                  <span>特效片段</span>
+                  <span>可叠加多个时间段</span>
+                </div>
+                <div class="controls-grid effect-row">
+                  <select id="effect-type" aria-label="特效类型">
+                    <option value="glitch">故障闪切</option>
+                    <option value="scan">霓虹扫描</option>
+                    <option value="pulse">冲击波</option>
+                    <option value="focus">暗场聚焦</option>
+                  </select>
+                  <input id="effect-start" type="number" min="0" step="0.01" value="0" aria-label="特效起点" />
+                  <span class="mini">到</span>
+                  <input id="effect-end" type="number" min="0" step="0.01" value="0.6" aria-label="特效终点" />
+                  <button id="btn-effect-start" type="button">设为起点</button>
+                  <button id="btn-effect-end" type="button">设为终点</button>
+                </div>
+                <div class="controls-grid effect-row compact">
+                  <span class="mini">强度</span>
+                  <input id="effect-intensity" type="range" min="0.2" max="1" step="0.05" value="0.7" aria-label="特效强度" />
+                  <button id="btn-add-effect" type="button">添加片段</button>
+                </div>
+                <div id="effect-list" class="effect-list"></div>
+              </div>
+            </section>
           </div>
-          <div class="controls-grid effect-row">
-            <select id="effect-type" aria-label="特效类型">
-              <option value="glitch">故障闪切</option>
-              <option value="scan">霓虹扫描</option>
-              <option value="pulse">冲击波</option>
-              <option value="focus">暗场聚焦</option>
-            </select>
-            <input id="effect-start" type="number" min="0" step="0.01" value="0" aria-label="特效起点" />
-            <span class="mini">到</span>
-            <input id="effect-end" type="number" min="0" step="0.01" value="0.6" aria-label="特效终点" />
-            <button id="btn-effect-start" type="button">设为起点</button>
-            <button id="btn-effect-end" type="button">设为终点</button>
-          </div>
-          <div class="controls-grid effect-row compact">
-            <span class="mini">强度</span>
-            <input id="effect-intensity" type="range" min="0.2" max="1" step="0.05" value="0.7" aria-label="特效强度" />
-            <button id="btn-add-effect" type="button">添加片段</button>
-          </div>
-          <div id="effect-list" class="effect-list"></div>
-        </div>
-      </section>
+        </section>
 
-      <section class="below" aria-label="使用说明">
-        <div class="note"><b>1. 上传</b> 原片负责识别手势，风格片负责进入框内。</div>
-        <div class="note"><b>2. 调整</b> 拖动时间轴定位，设置反向蒙版或特效片段。</div>
-        <div class="note"><b>3. 导出</b> 页面会完整播放一次并保存合成视频。</div>
-      </section>
-    </main>
+        <section class="below" aria-label="使用说明">
+          <div class="note"><b>上传</b> 原片负责识别手势，风格片负责进入框内。</div>
+          <div class="note"><b>调整</b> 拖动时间轴定位，设置反向蒙版或特效片段。</div>
+          <div class="note"><b>导出</b> 页面会完整播放一次并保存合成视频。</div>
+        </section>
+      </main>
 
-    <footer>FrameLab · MediaPipe 手部追踪 · 本地浏览器合成</footer>
+      <footer>FrameLab · MediaPipe 手部追踪 · 本地浏览器合成</footer>
+    </div>
   </div>
 
   <script type="module" src="app.js?v=public-release"></script>
