@@ -39,14 +39,7 @@ Build output directory: dist
 Root directory: /
 ```
 
-也可以用本仓库内置的 GitHub Actions 自动部署。先在 Cloudflare 创建 Pages 项目 `painting`，再到 GitHub 仓库的 Actions secrets 添加：
-
-```text
-CLOUDFLARE_ACCOUNT_ID
-CLOUDFLARE_API_TOKEN
-```
-
-之后每次推送到 `main` 都会自动构建并发布到 Cloudflare Pages。
+连接完成后，每次推送到 `main` 都会自动构建并发布到 Cloudflare Pages。
 
 服务器处理版本：
 
