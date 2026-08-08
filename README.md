@@ -1,88 +1,67 @@
-# Finger Frame AI 🎬✨
+# FrameLab 手势取景合成
 
-**Try it: https://sophiamyang.github.io/finger-frame-effect-ai/**
+一个面向短视频创作的本地网页工具：上传原始视频和风格视频，页面会追踪双手取景框，把风格画面合成到手势框里，并支持预览、时间定位、反向蒙版、特效片段和导出。
 
-Upload a video of the two-hand finger-frame gesture — get it back with an
-**AI-generated world inside the frame**. The whole video is restyled by a
-video-to-video model (motion, blinks, and all), then composited so the
-finger frame acts as a window into the animated version.
+## 功能
 
-## The finger-frame family
+- 双视频上传：原始视频用于手部追踪，风格视频用于框内画面。
+- 实时预览：浏览器 Canvas 直接显示合成效果。
+- 时长查看：预览画面和时间轴都会显示当前时间与总时长。
+- 时间定位：拖动时间轴快速跳到指定片段。
+- 反向蒙版：可设置一个时间区间，把框内和框外画面反过来。
+- 酷炫片段：支持故障闪切、霓虹扫描、冲击波、暗场聚焦等短片段特效。
+- 本地导出：页面会完整播放一次并保存合成视频。
 
-| App | Generation | Latency |
-|---|---|---|
-| [finger-frame-effect](https://sophiamyang.github.io/finger-frame-effect/) ([repo](https://github.com/sophiamyang/finger-frame-effect)) — live camera, local effects | Canvas 2D (Van Gogh, toon, glitch, …) | none |
-| **this app** — recorded video, AI restyle | Gemini Omni Flash (offline video edit) | minutes |
-| [finger-frame-effect-lucy](https://sophiamyang.github.io/finger-frame-effect-lucy/) ([repo](https://github.com/sophiamyang/finger-frame-effect-lucy)) — live camera, live AI | Decart Lucy 2.5 (realtime video-to-video) | ~real time |
+## 本地运行
 
-![Example: AI-animated world inside the finger frame](examples/final.gif)
-
-*Real hands, AI world — generated with the default "3D animated movie"
-style ([full-quality mp4](examples/final.mp4)).*
-
-## How it works
-
-1. **Restyle** — the uploaded video is sent to
-   [Gemini Omni Flash video editing](https://ai.google.dev/gemini-api/docs/omni)
-   with your chosen style (3D animated movie, anime, claymation,
-   watercolor, or a custom prompt). This is a true video model: the whole
-   clip is regenerated, so the animated version moves exactly like you.
-   Every prompt gets a strict-alignment suffix appended — same framing, no
-   zoom/crop/recentering, facial features at the same screen coordinates,
-   expression preserved frame by frame (mouth openness, blinks, gaze) — so
-   the result lines up behind the finger-frame window.
-2. **Track** — MediaPipe Hand Landmarker finds both hands per frame, and the
-   finger-frame quad is tracked with the same audited pipeline as the live
-   app (anatomical corner ordering — crossing your fingers renders the
-   bowtie — spread/area gates with hysteresis, teleport rejection,
-   velocity-adaptive smoothing, dropout hold, presence fade).
-3. **Composite** — the AI video is revealed through the tracked quad with
-   the dashed marching-ants outline and pulsing corner dots.
-4. **Export** — the result records to a downloadable video — MP4 where the
-   browser supports recording it (Safari, newer Chrome), otherwise `.webm`
-   (convert with `ffmpeg -i finger-frame-ai.webm -c:v libx264 out.mp4`).
-
-## Bring your own key
-
-The AI step uses your own [Gemini API key](https://aistudio.google.com/apikey),
-entered in the app. It stays in your browser (localStorage only if you check
-"remember") and is sent only to Google's API. Generation is billed per
-video and takes a few minutes. Keep clips under ~15MB (a few seconds of
-720p — any common format: mp4, mov, webm); larger files exceed the inline
-upload limit. No key? The **placeholder style** button runs the full
-track-composite-export pipeline with a hue-shifted stand-in so you can try
-everything for free.
-
-## Run locally
-
-Any static server works:
+静态网页版本：
 
 ```bash
 python3 -m http.server 8124
 ```
 
-Then open http://localhost:8124. A `?src=<file>` query param loads a video
-from the server directory (dev convenience).
+打开：
 
-## CLI alternative (Python)
+```text
+http://127.0.0.1:8124/?v=public-release
+```
 
-The same pipeline as offline scripts — useful for batch work or
-frame-accurate H.264 output:
+服务器处理版本：
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-
-export GEMINI_API_KEY=...
-.venv/bin/python stylize.py input.mp4 -o stylized.mp4      # AI restyle
-.venv/bin/python composite.py input.mp4 stylized.mp4 -o final.mp4
+.venv/bin/python webapp.py
 ```
 
-Any input format ffmpeg/OpenCV can read works (mp4, mov, webm, …).
-`composite.py` needs `ffmpeg` on PATH, outputs H.264 MP4, and carries over
-the original audio track when present.
+打开：
 
-## Notes
+```text
+http://127.0.0.1:8765
+```
 
-- Input/output media are gitignored — personal footage stays local. The
-  only committed media is the sample under `examples/`.
+## Python 命令行合成
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python composite.py original.mp4 stylized.mp4 -o final.mp4
+```
+
+指定反向蒙版时间段：
+
+```bash
+.venv/bin/python composite.py original.mp4 stylized.mp4 -o final.mp4 --invert-window 5-10
+```
+
+## 关键帧扫描
+
+```bash
+.venv/bin/python keyframe_scan.py original.mp4 stylized.mp4 -o scan_out
+```
+
+会输出追踪报告、关键帧截图和预览视频，方便挑选适合做蒙版调整的时间段。
+
+## 隐私说明
+
+静态网页版本在浏览器本地处理素材，不需要 API key，也不会主动上传视频。输入视频、导出视频、模型文件和临时缓存均已加入忽略规则；仓库只保留源码和示例媒体。

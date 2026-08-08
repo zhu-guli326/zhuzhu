@@ -1,323 +1,565 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Finger Frame AI</title>
+  <title>FrameLab 手势取景合成</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg: #0b0a10;
-      --card: rgba(255, 255, 255, 0.035);
-      --line: rgba(255, 255, 255, 0.09);
-      --text-dim: rgba(255, 255, 255, 0.6);
-      --text-faint: rgba(255, 255, 255, 0.42);
-      --accent-a: #ff6b5e;
-      --accent-b: #ffc24b;
-      --grad: linear-gradient(120deg, var(--accent-a), var(--accent-b));
+      --bg: #09090b;
+      --panel: #121216;
+      --panel-soft: #18181d;
+      --line: rgba(255,255,255,.11);
+      --line-strong: rgba(255,255,255,.18);
+      --text: #f4f1eb;
+      --muted: rgba(244,241,235,.68);
+      --faint: rgba(244,241,235,.46);
+      --accent: #ff7a5f;
+      --accent-2: #ffbf4d;
+      --cyan: #5fd7ff;
+      --radius: 16px;
     }
     html, body { min-height: 100%; }
     body {
+      min-height: 100dvh;
       background:
-        radial-gradient(900px 500px at 12% -8%, rgba(255, 107, 94, 0.10), transparent 60%),
-        radial-gradient(800px 500px at 95% 30%, rgba(255, 194, 75, 0.07), transparent 55%),
+        linear-gradient(180deg, rgba(255,122,95,.10), transparent 300px),
+        radial-gradient(760px 420px at 86% 12%, rgba(95,215,255,.12), transparent 64%),
         var(--bg);
-      color: #f2f0ec;
+      color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 44px 16px 40px;
+      padding: 20px;
     }
-
-    /* ---- header ---- */
-    header { text-align: center; margin-bottom: 34px; }
-    .mark {
-      position: relative;
-      width: 58px; height: 44px;
-      margin: 0 auto 16px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 20px;
-    }
-    .mark i {
-      position: absolute; width: 14px; height: 14px;
-      border: 2.5px solid transparent;
-      border-image: var(--grad) 1;
-    }
-    .mark i:nth-child(1) { top: 0; left: 0; border-right: none; border-bottom: none; }
-    .mark i:nth-child(2) { top: 0; right: 0; border-left: none; border-bottom: none; }
-    .mark i:nth-child(3) { bottom: 0; left: 0; border-right: none; border-top: none; }
-    .mark i:nth-child(4) { bottom: 0; right: 0; border-left: none; border-top: none; }
-    h1 {
-      font-size: 30px;
-      letter-spacing: -0.5px;
-      background: linear-gradient(120deg, #fff 30%, var(--accent-b));
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin-bottom: 8px;
-    }
-    .sub {
-      font-size: 14.5px;
-      color: var(--text-dim);
-      max-width: 480px;
-      line-height: 1.55;
-      margin: 0 auto;
-    }
-    .sub b { color: #fff; font-weight: 600; }
-
-    /* ---- cards & steps ---- */
-    .card {
-      width: min(720px, 100%);
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 20px 22px;
-      margin-bottom: 16px;
-      backdrop-filter: blur(8px);
-    }
-    .step {
-      display: flex; align-items: center; gap: 10px;
-      font-size: 14.5px; font-weight: 650;
-      margin-bottom: 10px;
-    }
-    .step .n {
-      width: 22px; height: 22px; flex: none;
-      border-radius: 50%;
-      background: var(--grad);
-      color: #1a120b;
-      font-size: 12px; font-weight: 800;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .step .opt { color: var(--text-faint); font-weight: 400; font-size: 12.5px; }
-    .card p { font-size: 12.5px; color: var(--text-dim); line-height: 1.55; margin-bottom: 12px; }
-    .card a { color: var(--accent-b); text-decoration: none; }
-    .card a:hover { text-decoration: underline; }
-
-    input[type="password"], select, textarea {
-      width: 100%;
-      padding: 9px 12px;
-      border-radius: 10px;
-      border: 1px solid var(--line);
-      background: rgba(0, 0, 0, 0.35);
-      color: #f2f0ec;
-      font-size: 13px;
-      margin-bottom: 10px;
-      font-family: ui-monospace, monospace;
-      resize: vertical;
-      transition: border-color 0.15s;
-    }
-    input:focus, select:focus, textarea:focus {
-      outline: none;
-      border-color: rgba(255, 194, 75, 0.55);
-    }
-    select, textarea { font-family: inherit; }
-    select option { background: #17151d; }
-    .remember {
-      display: flex; align-items: center; gap: 7px;
-      font-size: 12.5px; color: var(--text-dim);
-      cursor: pointer; margin-bottom: 2px;
-    }
-    .remember input { accent-color: var(--accent-a); }
-    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    @media (max-width: 560px) { .row2 { grid-template-columns: 1fr; } }
-    .field-label {
-      font-size: 11px; font-weight: 700;
-      letter-spacing: 0.08em; text-transform: uppercase;
-      color: var(--text-faint);
-      margin-bottom: 6px;
-    }
-
-    /* ---- drop zone ---- */
-    #drop {
-      position: relative;
-      width: min(720px, 100%);
-      border: 1.5px dashed rgba(255, 255, 255, 0.22);
-      border-radius: 18px;
-      padding: 44px 24px;
-      text-align: center;
-      cursor: pointer;
-      margin-bottom: 16px;
-      transition: border-color 0.15s, background 0.15s, padding 0.25s;
-    }
-    #drop:hover, #drop.over {
-      border-color: rgba(255, 194, 75, 0.6);
-      background: rgba(255, 194, 75, 0.045);
-    }
-    #drop.compact { padding: 18px 24px; }
-    #drop.compact .film, #drop.compact .small { display: none; }
-    #drop input { display: none; }
-    #drop .corner {
-      position: absolute; width: 18px; height: 18px;
-      border: 2.5px solid transparent;
-      border-image: var(--grad) 1;
-      transition: all 0.2s;
-    }
-    #drop .corner.tl { top: 10px; left: 10px; border-right: none; border-bottom: none; }
-    #drop .corner.tr { top: 10px; right: 10px; border-left: none; border-bottom: none; }
-    #drop .corner.bl { bottom: 10px; left: 10px; border-right: none; border-top: none; }
-    #drop .corner.br { bottom: 10px; right: 10px; border-left: none; border-top: none; }
-    #drop:hover .corner { width: 24px; height: 24px; }
-    #drop .film { font-size: 26px; margin-bottom: 10px; }
-    #drop .big { font-size: 15px; font-weight: 650; margin-bottom: 6px; }
-    #drop .small { font-size: 12.5px; color: var(--text-faint); }
-
-    /* ---- stage ---- */
-    #stage {
-      width: min(960px, 100%);
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      gap: 14px;
-    }
-    .canvas-wrap {
-      width: 100%;
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 10px;
-      box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.8);
-    }
-    canvas { display: block; width: 100%; border-radius: 10px; background: #000; }
-    video { display: none; }
-
-    #controls { display: flex; flex-wrap: wrap; gap: 9px; justify-content: center; }
+    button, input, select { font: inherit; }
     button {
       appearance: none;
       border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.05);
-      color: #f2f0ec;
-      font-size: 13.5px;
-      font-weight: 650;
-      padding: 10px 18px;
-      border-radius: 12px;
+      background: rgba(255,255,255,.055);
+      color: var(--text);
+      min-height: 44px;
+      padding: 10px 16px;
+      border-radius: 999px;
       cursor: pointer;
-      font-family: inherit;
-      transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+      font-size: 14px;
+      font-weight: 700;
+      transition: transform .12s ease, border-color .12s ease, background .12s ease;
     }
-    button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.1); transform: translateY(-1px); }
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      border-color: var(--line-strong);
+      background: rgba(255,255,255,.09);
+    }
     button:active:not(:disabled) { transform: translateY(0); }
-    button:disabled { opacity: 0.35; cursor: default; }
+    button:disabled { cursor: default; opacity: .42; }
     button.primary {
-      background: var(--grad);
-      border: none;
-      color: #1a120b;
-      box-shadow: 0 6px 24px -8px rgba(255, 140, 80, 0.55);
+      border: 0;
+      color: #17110c;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 18px 42px -28px var(--accent);
     }
-    button.primary:hover:not(:disabled) {
-      box-shadow: 0 10px 30px -8px rgba(255, 140, 80, 0.75);
-      background: var(--grad);
+    input[type="file"],
+    input[type="number"],
+    select {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(0,0,0,.26);
+      color: var(--text);
+      padding: 10px 12px;
+      font-size: 13px;
     }
-
-    /* ---- status ---- */
+    input[type="range"] { width: 100%; accent-color: var(--accent); }
+    select option { background: #17171c; color: var(--text); }
+    .page { width: min(1280px, 100%); margin: 0 auto; }
+    .topbar {
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      letter-spacing: .01em;
+    }
+    .brand-mark {
+      width: 34px;
+      height: 26px;
+      position: relative;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: linear-gradient(135deg, rgba(255,122,95,.24), rgba(95,215,255,.12));
+    }
+    .brand-mark::before,
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      inset: 7px;
+      border-top: 2px solid var(--accent-2);
+      border-bottom: 2px solid var(--cyan);
+      transform: skewX(-18deg);
+    }
+    .nav-note {
+      color: var(--faint);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+      gap: 22px;
+      align-items: stretch;
+      margin-bottom: 18px;
+    }
+    @media (max-width: 980px) {
+      body { padding: 14px; }
+      .hero { grid-template-columns: 1fr; }
+      .topbar { height: auto; align-items: flex-start; }
+      .nav-note { white-space: normal; text-align: right; }
+    }
+    .intro,
+    .tool-panel,
+    .preview-panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(18,18,22,.82);
+      backdrop-filter: blur(14px);
+    }
+    .intro {
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 420px;
+    }
+    .eyebrow {
+      width: fit-content;
+      margin-bottom: 14px;
+      border: 1px solid rgba(255,191,77,.28);
+      border-radius: 999px;
+      color: var(--accent-2);
+      background: rgba(255,191,77,.08);
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    h1 {
+      max-width: 9ch;
+      margin-bottom: 16px;
+      font-size: clamp(42px, 8vw, 76px);
+      line-height: .95;
+      letter-spacing: 0;
+    }
+    .sub {
+      max-width: 36ch;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.65;
+    }
+    .trust-row {
+      display: grid;
+      gap: 8px;
+      margin-top: 26px;
+      color: var(--faint);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .trust-row b { color: var(--text); font-weight: 750; }
+    .preview-panel {
+      min-height: 420px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    #stage {
+      width: 100%;
+      min-height: 100%;
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .empty-preview {
+      flex: 1;
+      min-height: 300px;
+      display: grid;
+      place-items: center;
+      border: 1px dashed rgba(255,255,255,.18);
+      border-radius: 14px;
+      background:
+        linear-gradient(135deg, rgba(255,122,95,.08), rgba(95,215,255,.06)),
+        rgba(255,255,255,.025);
+      color: var(--muted);
+      text-align: center;
+      padding: 24px;
+    }
+    .empty-preview b {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--text);
+      font-size: 17px;
+    }
+    .canvas-wrap {
+      position: relative;
+      display: none;
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 8px;
+      background: #050507;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+    }
+    .canvas-wrap.ready { display: block; }
+    canvas {
+      display: block;
+      width: 100%;
+      border-radius: 10px;
+      background: #000;
+    }
+    .duration-badge {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      min-width: 168px;
+      display: grid;
+      gap: 3px;
+      padding: 9px 11px;
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 12px;
+      background: rgba(8,8,11,.74);
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.35;
+      font-variant-numeric: tabular-nums;
+      backdrop-filter: blur(10px);
+      pointer-events: none;
+    }
+    .duration-badge b { font-size: 13px; }
+    .duration-badge span { color: var(--muted); }
+    video { display: none; }
+    #controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
     #status {
       display: none;
-      align-items: center;
-      gap: 9px;
-      font-size: 13px;
-      color: var(--text-dim);
-      background: var(--card);
+      align-self: center;
+      max-width: 100%;
       border: 1px solid var(--line);
       border-radius: 999px;
-      padding: 8px 16px;
-      max-width: min(720px, 100%);
-      text-align: left;
+      background: rgba(255,255,255,.045);
+      color: var(--muted);
+      padding: 8px 14px;
+      font-size: 13px;
+      line-height: 1.4;
     }
     #status:not(:empty) { display: inline-flex; }
     #status.working::before {
       content: "";
-      flex: none;
-      width: 13px; height: 13px;
+      width: 12px;
+      height: 12px;
+      margin-right: 8px;
       border-radius: 50%;
-      border: 2px solid rgba(255, 194, 75, 0.25);
-      border-top-color: var(--accent-b);
-      animation: spin 0.8s linear infinite;
+      border: 2px solid rgba(255,191,77,.28);
+      border-top-color: var(--accent-2);
+      animation: spin .8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    footer {
-      margin-top: 34px;
-      font-size: 12px;
-      color: var(--text-faint);
-      text-align: center;
-      line-height: 1.8;
+    .tool-panel {
+      padding: 18px;
+      margin-bottom: 18px;
     }
-    footer a { color: var(--text-dim); }
-    .hidden { display: none !important; }
+    .panel-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      margin-bottom: 14px;
+    }
+    .panel-title h2 {
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+    .panel-title span {
+      color: var(--faint);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .uploader {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    @media (max-width: 760px) { .uploader { grid-template-columns: 1fr; } }
+    .upload {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel-soft);
+      padding: 14px;
+    }
+    .field-label {
+      margin-bottom: 8px;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .hint {
+      margin-top: 9px;
+      color: var(--faint);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .timeline {
+      margin-top: 14px;
+      border-top: 1px solid var(--line);
+      padding-top: 16px;
+    }
+    .timeline-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .timeline-head span:last-child {
+      color: var(--muted);
+      font-weight: 650;
+      font-variant-numeric: tabular-nums;
+    }
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+      align-items: end;
+      margin-top: 12px;
+    }
+    .invert-row { grid-template-columns: 1.2fr 1fr auto 1fr auto auto; }
+    .effect-row { grid-template-columns: 1.2fr 1fr auto 1fr auto auto; }
+    .effect-row.compact { grid-template-columns: auto 1fr auto; }
+    @media (max-width: 980px) {
+      .controls-grid,
+      .invert-row,
+      .effect-row,
+      .effect-row.compact { grid-template-columns: 1fr 1fr; }
+    }
+    .controls-grid label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 42px;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .mini {
+      align-self: center;
+      color: var(--faint);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .section-break {
+      height: 1px;
+      margin: 16px 0 14px;
+      background: var(--line);
+    }
+    .effect-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+      min-height: 34px;
+    }
+    .effect-list:empty::before {
+      content: "尚未添加特效片段";
+      color: var(--faint);
+      font-size: 12px;
+      align-self: center;
+    }
+    .effect-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255,255,255,.05);
+      color: var(--text);
+      padding: 6px 8px 6px 12px;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .effect-chip button {
+      width: 22px;
+      min-height: 22px;
+      height: 22px;
+      padding: 0;
+      color: var(--muted);
+    }
+    .below {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 860px) { .below { grid-template-columns: 1fr; } }
+    .note {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,.035);
+      padding: 14px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .note b {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--text);
+    }
+    footer {
+      padding: 8px 0 24px;
+      color: var(--faint);
+      font-size: 12px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
-  <header>
-    <div class="mark"><i></i><i></i><i></i><i></i>✨</div>
-    <h1>Finger Frame AI</h1>
-    <div class="sub">
-      Upload a clip of the <b>finger-frame gesture</b> — get it back with an
-      AI-animated version of you living inside the frame, tracked to your
-      fingers.
-    </div>
-  </header>
+  <div class="page">
+    <nav class="topbar" aria-label="主导航">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>FrameLab</span>
+      </div>
+      <div class="nav-note">浏览器本地处理 · 不上传素材 · 面向短视频创作</div>
+    </nav>
 
-  <div class="card" id="panel">
-    <div class="step"><span class="n">1</span> Key &amp; style
-      <span class="opt">— key needed only for the AI restyle</span></div>
-    <p>
-      Restyling runs on <strong>Gemini Omni Flash</strong>
-      (<a href="https://ai.google.dev/gemini-api/docs/omni" target="_blank" rel="noopener">video-to-video editing</a>)
-      with your own key from
-      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
-      It stays in your browser and is sent only to Google's API. No key? Try
-      everything with the placeholder style first.
-    </p>
-    <div class="row2">
-      <div>
-        <div class="field-label">Gemini API key</div>
-        <input id="gem-key" type="password" placeholder="AIza…" autocomplete="off" />
-        <label class="remember"><input type="checkbox" id="gem-remember" /> Remember on this device</label>
-      </div>
-      <div>
-        <div class="field-label">Style</div>
-        <select id="style-select">
-          <option value="movie3d">3D animated movie</option>
-          <option value="anime">Anime</option>
-          <option value="clay">Claymation</option>
-          <option value="watercolor">Watercolor</option>
-          <option value="custom">Custom prompt…</option>
-        </select>
-        <textarea id="style-custom" rows="2" class="hidden"
-          placeholder="e.g. 'Turn the scene into a LEGO world'"></textarea>
-      </div>
-    </div>
+    <main>
+      <section class="hero" aria-label="手势取景合成工具">
+        <div class="intro">
+          <div>
+            <div class="eyebrow">Finger Frame Composer</div>
+            <h1>把画面放进手势框</h1>
+            <p class="sub">
+              上传原片和风格片，自动追踪双手取景框，预览、反向蒙版、添加特效，并导出成片。
+            </p>
+          </div>
+          <div class="trust-row">
+            <span><b>两段素材即可开始</b> 原片用于追踪手势，风格片作为框内画面。</span>
+            <span><b>适合发布前微调</b> 可按时间段反转蒙版，或加入短促的视觉片段。</span>
+          </div>
+        </div>
+
+        <div class="preview-panel">
+          <div id="stage">
+            <video id="orig" playsinline muted></video>
+            <video id="sty" playsinline muted crossorigin="anonymous"></video>
+            <div id="empty-preview" class="empty-preview">
+              <div>
+                <b>等待素材</b>
+                上传两段视频后，这里会显示实时预览。
+              </div>
+            </div>
+            <div id="preview-area" class="canvas-wrap">
+              <canvas id="canvas"></canvas>
+              <div class="duration-badge">
+                <b id="duration-main">00:00.00 / 00:00.00</b>
+                <span id="duration-detail">原始 00:00.00 · 风格 00:00.00</span>
+              </div>
+            </div>
+            <div id="controls">
+              <button id="btn-play" class="primary" disabled>预览</button>
+              <button id="btn-export" disabled>导出</button>
+            </div>
+            <div id="status"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="tool-panel" aria-label="合成控制">
+        <div class="panel-title">
+          <h2>素材与时间轴</h2>
+          <span>当前页面只使用本次选择的文件，刷新后不会保留视频。</span>
+        </div>
+
+        <div class="uploader">
+          <div class="upload">
+            <div class="field-label">原始视频</div>
+            <input id="orig-file" type="file" accept="video/*" autocomplete="off" />
+            <div class="hint">用于手部追踪和最终时间轴，建议画面中双手清晰可见。</div>
+          </div>
+          <div class="upload">
+            <div class="field-label">风格视频</div>
+            <input id="sty-file" type="file" accept="video/*" autocomplete="off" />
+            <div class="hint">作为手势框内画面，最好和原始视频时长一致。</div>
+          </div>
+        </div>
+
+        <div class="timeline" id="timeline">
+          <div class="timeline-head">
+            <span>时间定位</span>
+            <span id="time-readout">00:00.00 / 00:00.00</span>
+          </div>
+          <input id="scrub" type="range" min="0" max="0" step="0.01" value="0" disabled />
+
+          <div class="controls-grid invert-row">
+            <label><input id="invert-enabled" type="checkbox" /> 反向蒙版</label>
+            <input id="invert-start" type="number" min="0" step="0.01" value="0" aria-label="反向蒙版起点" />
+            <span class="mini">到</span>
+            <input id="invert-end" type="number" min="0" step="0.01" value="0" aria-label="反向蒙版终点" />
+            <button id="btn-set-start" type="button">设为起点</button>
+            <button id="btn-set-end" type="button">设为终点</button>
+          </div>
+          <div class="hint">反向蒙版区间内会把原视频和风格视频对调。</div>
+
+          <div class="section-break"></div>
+          <div class="timeline-head">
+            <span>特效片段</span>
+            <span>可叠加多个时间段</span>
+          </div>
+          <div class="controls-grid effect-row">
+            <select id="effect-type" aria-label="特效类型">
+              <option value="glitch">故障闪切</option>
+              <option value="scan">霓虹扫描</option>
+              <option value="pulse">冲击波</option>
+              <option value="focus">暗场聚焦</option>
+            </select>
+            <input id="effect-start" type="number" min="0" step="0.01" value="0" aria-label="特效起点" />
+            <span class="mini">到</span>
+            <input id="effect-end" type="number" min="0" step="0.01" value="0.6" aria-label="特效终点" />
+            <button id="btn-effect-start" type="button">设为起点</button>
+            <button id="btn-effect-end" type="button">设为终点</button>
+          </div>
+          <div class="controls-grid effect-row compact">
+            <span class="mini">强度</span>
+            <input id="effect-intensity" type="range" min="0.2" max="1" step="0.05" value="0.7" aria-label="特效强度" />
+            <button id="btn-add-effect" type="button">添加片段</button>
+          </div>
+          <div id="effect-list" class="effect-list"></div>
+        </div>
+      </section>
+
+      <section class="below" aria-label="使用说明">
+        <div class="note"><b>1. 上传</b> 原片负责识别手势，风格片负责进入框内。</div>
+        <div class="note"><b>2. 调整</b> 拖动时间轴定位，设置反向蒙版或特效片段。</div>
+        <div class="note"><b>3. 导出</b> 页面会完整播放一次并保存合成视频。</div>
+      </section>
+    </main>
+
+    <footer>FrameLab · MediaPipe 手部追踪 · 本地浏览器合成</footer>
   </div>
 
-  <label id="drop">
-    <span class="corner tl"></span><span class="corner tr"></span>
-    <span class="corner bl"></span><span class="corner br"></span>
-    <input id="file" type="file" accept="video/*" />
-    <div class="film">🎬</div>
-    <div class="big"><span style="opacity:.55">2 ·</span> Drop a video here, or click to choose</div>
-    <div class="small">A few seconds of 720p footage with the two-hand gesture works best (&lt;15MB).</div>
-  </label>
-
-  <div id="stage">
-    <video id="orig" playsinline muted></video>
-    <video id="sty" playsinline muted crossorigin="anonymous"></video>
-    <div class="canvas-wrap"><canvas id="canvas"></canvas></div>
-    <div id="controls">
-      <button id="btn-generate" class="primary">✨ Generate AI video</button>
-      <button id="btn-placeholder">Try placeholder style</button>
-      <button id="btn-play" disabled>▶ Preview</button>
-      <button id="btn-export" disabled>⬇ Export</button>
-    </div>
-    <div id="status"></div>
-  </div>
-
-  <footer>
-    Gemini Omni Flash · MediaPipe hand tracking · runs entirely in your browser<br />
-    <a href="https://sophiamyang.github.io/finger-frame-effect/" target="_blank" rel="noopener">live-camera sibling app</a>
-    ·
-    <a href="https://github.com/sophiamyang/finger-frame-effect-ai" target="_blank" rel="noopener">source on GitHub</a>
-  </footer>
-
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=public-release"></script>
 </body>
 </html>

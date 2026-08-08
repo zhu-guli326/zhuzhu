@@ -182,6 +182,16 @@ def draw_outline(frame, quad, presence, t):
     cv2.addWeighted(overlay, presence, frame, 1 - presence, 0, dst=frame)
 
 
+def parse_time_range(spec):
+    if not spec:
+        return None
+    if "-" not in spec:
+        t = float(spec)
+        return (t, t)
+    a, b = spec.split("-", 1)
+    return (float(a), float(b))
+
+
 def ensure_model():
     if not os.path.exists(MODEL_PATH):
         print("Downloading hand landmarker model …")
@@ -193,6 +203,11 @@ def main():
     ap.add_argument("original", nargs="?", default="finger-effect-raw.mp4")
     ap.add_argument("stylized", nargs="?", default="stylized.mp4")
     ap.add_argument("-o", "--output", default="final.mp4")
+    ap.add_argument(
+        "--invert-window",
+        default="",
+        help="invert the mask only inside this time range, e.g. 5-10",
+    )
     args = ap.parse_args()
 
     for f in (args.original, args.stylized):
@@ -211,6 +226,7 @@ def main():
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     sty_fps = sty.get(cv2.CAP_PROP_FPS) or fps
     sty_count = int(sty.get(cv2.CAP_PROP_FRAME_COUNT))
+    invert_range = parse_time_range(args.invert_window)
 
     landmarker = vision.HandLandmarker.create_from_options(
         vision.HandLandmarkerOptions(
@@ -268,6 +284,8 @@ def main():
             mask = np.zeros((h, w), dtype=np.uint8)
             cv2.fillPoly(mask, [np.array(quad, dtype=np.int32)], 255)
             m = (mask.astype(np.float32) / 255.0 * tracker.presence)[..., None]
+            if invert_range and invert_range[0] <= t <= invert_range[1]:
+                m = 1.0 - m
             frame = (
                 frame.astype(np.float32) * (1 - m)
                 + sty_frame.astype(np.float32) * m
