@@ -1,0 +1,9 @@
+{
+  "name": "framelab-hand-frame-composer",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "rm -rf dist && mkdir -p dist && cp index.html app.js _headers dist/",
+    "check": "node --check app.js"
+  }
+}
