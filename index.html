@@ -145,6 +145,40 @@
       line-height: 1.6;
       margin-bottom: 20px;
     }
+    .steps {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 46px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 750;
+    }
+    .step-no {
+      width: 24px;
+      height: 24px;
+      flex: none;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      background: var(--green);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .step span:last-child {
+      color: var(--muted);
+      font-weight: 650;
+    }
     .upload-list {
       display: grid;
       gap: 10px;
@@ -437,6 +471,7 @@
       .setup,
       .preview-panel { padding: 14px; }
       .panel { border-radius: 18px; }
+      .step { align-items: flex-start; }
       .invert-row,
       .effect-row,
       .effect-row.compact,
@@ -463,6 +498,12 @@
       <section class="panel setup">
         <h1>手势框合成</h1>
         <p class="sub">选原片和风格片，预览满意后导出。默认不用调参数。</p>
+
+        <div class="steps" aria-label="操作步骤">
+          <div class="step"><span class="step-no">1</span><span>上传原始视频和风格视频</span></div>
+          <div class="step"><span class="step-no">2</span><span>拖动时间轴，必要时打开“高级”</span></div>
+          <div class="step"><span class="step-no">3</span><span>点预览，特效会叠在风格视频上，再导出</span></div>
+        </div>
 
         <div class="upload-list">
           <div class="upload">
@@ -507,7 +548,7 @@
             </div>
 
             <div>
-              <div class="field-label">特效片段 <span>可选</span></div>
+              <div class="field-label">特效片段 <span>叠加在风格视频上</span></div>
               <div class="controls-grid effect-row">
                 <select id="effect-type" aria-label="特效类型">
                   <option value="glitch">故障闪切</option>
