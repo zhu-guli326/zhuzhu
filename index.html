@@ -484,38 +484,15 @@
       line-height: 1.45;
     }
     .empty-visual {
-      position: relative;
-      width: min(176px, 68%);
-      aspect-ratio: 1.52;
+      width: min(184px, 72%);
+      aspect-ratio: 1.45;
       margin: 0 auto 14px;
-      border-radius: 16px;
-      background:
-        linear-gradient(135deg, rgba(255,255,255,.40), rgba(255,255,255,.08)),
-        linear-gradient(180deg, rgba(7,59,45,.88), rgba(13,74,57,.84));
-      overflow: hidden;
+      filter: drop-shadow(0 14px 24px rgba(0, 0, 0, .22));
     }
-    .empty-visual::before,
-    .empty-visual::after {
-      content: "";
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      border-radius: 999px;
-    }
-    .empty-visual::before {
-      top: 16px;
-      width: 92px;
-      height: 60px;
-      border: 8px solid rgba(199, 241, 91, .92);
-      border-bottom-width: 12px;
-      border-top-color: rgba(255,255,255,.18);
-    }
-    .empty-visual::after {
-      bottom: 14px;
-      width: 114px;
-      height: 12px;
-      background: rgba(255,255,255,.12);
-      box-shadow: 0 -1px 0 rgba(255,255,255,.16);
+    .empty-visual svg {
+      display: block;
+      width: 100%;
+      height: 100%;
     }
     canvas {
       position: relative;
@@ -805,10 +782,6 @@
     .canvas-wrap .empty-preview { color: rgba(255, 255, 255, .74); }
     .empty-preview b { color: #fff; }
     .empty-preview p { color: rgba(255, 255, 255, .64); }
-    .empty-visual {
-      border: 1px solid rgba(199, 241, 91, .16);
-      background: linear-gradient(145deg, rgba(43, 83, 68, .96), rgba(13, 47, 36, .98));
-    }
     #controls { gap: 10px; }
     #controls button { min-height: 50px; border-radius: 12px; }
     #controls button:not(.primary) { background: rgba(255, 255, 255, .92); }
@@ -976,7 +949,15 @@
               <div id="preview-area" class="canvas-wrap">
                 <div id="empty-preview" class="empty-preview">
                   <div>
-                    <div class="empty-visual" aria-hidden="true"></div>
+                    <div class="empty-visual" aria-hidden="true">
+                      <svg viewBox="0 0 184 127" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="24" y="24" width="118" height="78" rx="14" fill="#173e32" stroke="#FFFFFF" stroke-opacity=".12" stroke-width="2" transform="rotate(-7 83 63)" />
+                        <rect x="42" y="16" width="124" height="88" rx="16" fill="#245344" stroke="#C7F15B" stroke-opacity=".28" stroke-width="2" />
+                        <path d="M59 48V34H75M133 34H149V48M149 72V86H133M75 86H59V72" stroke="#C7F15B" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+                        <circle cx="104" cy="60" r="18" fill="#C7F15B" />
+                        <path d="M99 50.5L113 60L99 69.5V50.5Z" fill="#073B2D" />
+                      </svg>
+                    </div>
                     <b>先放入两段视频</b>
                     <p>上传原始视频和风格视频后，这里会直接显示合成预览。</p>
                   </div>
