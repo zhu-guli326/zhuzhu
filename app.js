@@ -41,6 +41,7 @@ const MEDIAPIPE_TASKS_URL =
 const WASM_URL = `${MEDIAPIPE_TASKS_URL}/wasm`;
 const MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+const DEFAULT_AUDIO_URL = "./bgm.mp3";
 const WRIST = 0;
 const THUMB_TIP = 4;
 const INDEX_TIP = 8;
@@ -822,6 +823,34 @@ async function handleAudio(file) {
   refreshControls();
 }
 
+async function loadBundledAudio() {
+  if (audioLoaded) return;
+  clearAudio();
+  audioLoaded = false;
+  audioName = "8月8日.mp3";
+  setFileName(audioFileName, audioName);
+  status("正在加载预置背景音乐…");
+  await new Promise((resolve, reject) => {
+    const done = () => {
+      bgm.removeEventListener("loadedmetadata", done);
+      bgm.removeEventListener("error", fail);
+      resolve();
+    };
+    const fail = () => {
+      bgm.removeEventListener("loadedmetadata", done);
+      bgm.removeEventListener("error", fail);
+      reject(new Error("预置音乐资源无法加载"));
+    };
+    bgm.addEventListener("loadedmetadata", done, { once: true });
+    bgm.addEventListener("error", fail, { once: true });
+    bgm.src = DEFAULT_AUDIO_URL;
+    bgm.load();
+  });
+  audioLoaded = true;
+  bgm.loop = true;
+  refreshControls();
+}
+
 origInput.addEventListener("change", async (e) => {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
@@ -1038,6 +1067,12 @@ window.addEventListener("pageshow", () => {
   resetTracker();
   updateTimeReadout();
   refreshControls();
+  void loadBundledAudio().catch((err) => {
+    console.warn(err);
+    audioLoaded = false;
+    setFileName(audioFileName, "");
+    refreshControls();
+  });
 });
 
 clearVideo(orig);
@@ -1051,3 +1086,9 @@ setFileName(audioFileName, "");
 setPreviewState("empty");
 updateTimeReadout();
 refreshControls();
+void loadBundledAudio().catch((err) => {
+  console.warn(err);
+  audioLoaded = false;
+  setFileName(audioFileName, "");
+  refreshControls();
+});

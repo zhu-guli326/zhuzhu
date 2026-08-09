@@ -733,7 +733,7 @@
                   <div class="upload-index">3</div>
                   <div class="upload-title">
                     <strong>背景音乐</strong>
-                    <span>可选</span>
+                    <span>已预置</span>
                   </div>
                 </div>
                 <label class="file-picker">
@@ -741,7 +741,7 @@
                   <span class="file-action">选择</span>
                   <span id="audio-file-name" class="file-name">未选择</span>
                 </label>
-                <div class="hint">支持 mp3、m4a、wav；网易云 .ncm 需先转换。</div>
+                <div class="hint">已预置 8月8日.mp3；也可以选择 mp3、m4a 或 wav 替换。</div>
               </div>
             </div>
 
@@ -804,7 +804,7 @@
             <div id="stage">
               <video id="orig" playsinline muted></video>
               <video id="sty" playsinline muted crossorigin="anonymous"></video>
-              <audio id="bgm" crossorigin="anonymous"></audio>
+              <audio id="bgm" preload="metadata" crossorigin="anonymous"></audio>
               <div id="preview-area" class="canvas-wrap">
                 <div id="empty-preview" class="empty-preview">
                   <div>
