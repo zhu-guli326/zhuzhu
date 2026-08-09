@@ -808,6 +808,46 @@
       border: 1px solid rgba(199, 241, 91, .16);
       background: linear-gradient(145deg, rgba(43, 83, 68, .96), rgba(13, 47, 36, .98));
     }
+    .empty-visual::before,
+    .empty-visual::after { display: none; }
+    .empty-frame {
+      position: absolute;
+      inset: 22px 27px;
+      border: 3px solid rgba(199, 241, 91, .94);
+      border-radius: 10px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16);
+    }
+    .empty-frame::before,
+    .empty-frame::after {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-color: #fff;
+      border-style: solid;
+    }
+    .empty-frame::before {
+      top: -3px;
+      left: -3px;
+      border-width: 3px 0 0 3px;
+    }
+    .empty-frame::after {
+      right: -3px;
+      bottom: -3px;
+      border-width: 0 3px 3px 0;
+    }
+    .empty-play {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      transform: translate(-42%, -50%);
+      border-top: 14px solid transparent;
+      border-bottom: 14px solid transparent;
+      border-left: 21px solid #fff;
+      filter: drop-shadow(0 3px 5px rgba(0, 0, 0, .18));
+    }
     #controls { gap: 10px; }
     #controls button { min-height: 50px; border-radius: 12px; }
     #controls button:not(.primary) { background: rgba(255, 255, 255, .92); }
@@ -996,7 +1036,10 @@
               <div id="preview-area" class="canvas-wrap">
                 <div id="empty-preview" class="empty-preview">
                   <div>
-                    <div class="empty-visual" aria-hidden="true"></div>
+                    <div class="empty-visual" aria-hidden="true">
+                      <span class="empty-frame"></span>
+                      <span class="empty-play"></span>
+                    </div>
                     <b>先放入两段视频</b>
                     <p>上传原始视频和风格视频后，这里会直接显示合成预览。</p>
                   </div>
