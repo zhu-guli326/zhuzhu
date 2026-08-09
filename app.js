@@ -262,6 +262,7 @@ function loadIntoVideo(videoEl, file) {
     let settled = false;
     const cleanup = () => {
       videoEl.onloadedmetadata = null;
+      videoEl.onloadeddata = null;
       videoEl.oncanplay = null;
       videoEl.onerror = null;
     };
@@ -279,7 +280,7 @@ function loadIntoVideo(videoEl, file) {
       const detail = videoEl.error && videoEl.error.message ? `：${videoEl.error.message}` : "";
       reject(new Error(`无法读取 ${file.name}${detail}`));
     };
-    videoEl.onloadedmetadata = done;
+    videoEl.onloadeddata = done;
     videoEl.oncanplay = done;
     videoEl.preload = "auto";
     videoEl.src = url;
@@ -302,14 +303,29 @@ function loadIntoAudio(audioEl, file) {
   });
 }
 
-function drawPoster() {
-  if (orig.readyState < 2) return;
-  orig.currentTime = 0.01;
-  orig.onseeked = () => {
-    orig.onseeked = null;
-    ctx.drawImage(orig, 0, 0, canvas.width, canvas.height);
-    updateTimeReadout();
-  };
+function seekVideo(videoEl, time) {
+  if (!videoEl || videoEl.readyState < 2) return Promise.resolve();
+  const duration = Number.isFinite(videoEl.duration) ? videoEl.duration : 0;
+  const target = clamp(time, 0, Math.max(0, duration - 0.01));
+  if (Math.abs(videoEl.currentTime - target) < 0.01) return Promise.resolve();
+  return new Promise((resolve) => {
+    const done = () => resolve();
+    videoEl.addEventListener("seeked", done, { once: true });
+    videoEl.currentTime = target;
+  });
+}
+
+async function showUploadPreview(time = 0) {
+  if (!origLoaded) return;
+  const target = clamp(time, 0, getDuration());
+  await seekVideo(orig, target);
+  if (styLoaded) await seekVideo(sty, target);
+  if (!corners) {
+    corners = defaultQuad();
+    presence = 1;
+    frameActive = true;
+  }
+  renderFrame(target);
 }
 
 async function initLandmarker() {
@@ -800,21 +816,22 @@ async function handleOriginal(file) {
   effectStart.value = "0";
   effectEnd.value = String(Math.min(0.6, orig.duration || 0));
   renderEffectList();
-  drawPoster();
   origLoaded = true;
-  autoTracking = true;
-  corners = null;
-  const mp = await initLandmarker();
-  if (mp) {
-    status(`已加载原始视频 ${origName}。MediaPipe 已就绪，会自动识别双手取景框。`);
-  } else {
-    corners = defaultQuad();
-    presence = 1;
-    frameActive = true;
-    status(`已加载原始视频 ${origName}。可拖动预览里的四个角调整取景框。`);
-  }
+  autoTracking = false;
+  corners = defaultQuad();
+  presence = 1;
+  frameActive = true;
   syncTimelineBounds();
   refreshControls();
+  await showUploadPreview(0);
+
+  const activeOrigUrl = origUrl;
+  void initLandmarker().then((mp) => {
+    if (!origLoaded || origUrl !== activeOrigUrl) return;
+    autoTracking = !!mp;
+    lastVideoTime = -1;
+    refreshControls();
+  });
 }
 
 async function handleStylized(file) {
@@ -833,7 +850,7 @@ async function handleStylized(file) {
   styUrl = await loadIntoVideo(sty, file);
   styLoaded = true;
   syncTimelineBounds();
-  updateTimeReadout();
+  await showUploadPreview(Number(scrub.value) || orig.currentTime || 0);
   refreshControls();
 }
 
