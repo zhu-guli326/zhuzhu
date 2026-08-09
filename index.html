@@ -3,7 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>FrameLab 手势取景合成</title>
+  <meta name="theme-color" content="#073b2d" />
+  <meta name="description" content="FrameLab 是一款在浏览器本地完成手势取景、双视频合成、特效预览与导出的创作工具。" />
+  <meta property="og:title" content="FrameLab 手势视频合成工具" />
+  <meta property="og:description" content="上传原始视频和风格视频，自动识别双手取景框，在浏览器本地预览并导出。" />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23c7f15b'/%3E%3Cpath d='M18 17v30h30M23 40l3-17m0 17h17l3-17' fill='none' stroke='%23073b2d' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  <title>FrameLab 手势视频合成工具</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -136,11 +142,6 @@
       border: 3px solid var(--green);
       border-top: 0;
       transform: skewX(-14deg) rotate(-8deg);
-    }
-    .actions {
-      display: none;
-      gap: 6px;
-      flex: none;
     }
     .tagline {
       color: var(--muted);
@@ -877,27 +878,6 @@
             <span class="brand-mark" aria-hidden="true"></span>
             <span>FrameLab</span>
           </div>
-          <div class="actions" aria-label="页面操作">
-            <button id="btn-back" class="icon-btn" type="button" aria-label="返回">
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-            </button>
-            <button id="btn-share" class="icon-btn" type="button" aria-label="分享">
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M12 3v11" />
-                <path d="M8.5 6.5L12 3l3.5 3.5" />
-                <path d="M6 13v6h12v-6" />
-              </svg>
-            </button>
-            <button id="btn-more" class="icon-btn" type="button" aria-label="更多">
-              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <circle cx="6" cy="12" r="1.8" />
-                <circle cx="12" cy="12" r="1.8" />
-                <circle cx="18" cy="12" r="1.8" />
-              </svg>
-            </button>
-          </div>
         </header>
         <p class="tagline">上传两段视频，MediaPipe 自动识别手势框</p>
 
@@ -1017,7 +997,7 @@
               <div id="controls">
                 <button id="btn-play" class="primary" disabled>播放</button>
                 <button id="btn-pause" disabled>暂停</button>
-                <button id="btn-export" disabled>定格画面</button>
+                <button id="btn-export" disabled>导出视频</button>
               </div>
               <div class="frame-tools" aria-label="取景框操作">
                 <button id="btn-auto-track" type="button" disabled>自动识别</button>

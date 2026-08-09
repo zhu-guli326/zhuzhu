@@ -44,6 +44,7 @@ const MEDIAPIPE_TASKS_URL =
 const WASM_URL = `${MEDIAPIPE_TASKS_URL}/wasm`;
 const MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+const MEDIAPIPE_LOAD_TIMEOUT_MS = 12000;
 const DEFAULT_AUDIO_URL = "./bgm.mp3";
 const WRIST = 0;
 const THUMB_TIP = 4;
@@ -315,7 +316,7 @@ async function initLandmarker() {
   if (landmarker) return landmarker;
   if (landmarkerLoading) return landmarkerLoading;
   status("正在加载 MediaPipe 手势识别…");
-  landmarkerLoading = import(`${MEDIAPIPE_TASKS_URL}/vision_bundle.mjs`)
+  const loadTask = import(`${MEDIAPIPE_TASKS_URL}/vision_bundle.mjs`)
     .then(async ({ FilesetResolver, HandLandmarker }) => {
       const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
       try {
@@ -339,11 +340,15 @@ async function initLandmarker() {
         });
       }
       return landmarker;
-    })
+    });
+  const timeoutTask = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error("MediaPipe load timeout")), MEDIAPIPE_LOAD_TIMEOUT_MS);
+  });
+  landmarkerLoading = Promise.race([loadTask, timeoutTask])
     .catch((err) => {
       console.warn("MediaPipe load failed", err);
       landmarkerLoading = null;
-      status("MediaPipe 加载失败，已切换为手动取景框。");
+      status("MediaPipe 暂时不可用，已切换为手动取景框。");
       return null;
     });
   return landmarkerLoading;
@@ -966,12 +971,79 @@ btnPause.addEventListener("click", () => {
 
 btnExport.addEventListener("click", async () => {
   if (exporting || !origLoaded || !styLoaded) return;
-  previewing = false;
-  orig.pause();
-  sty.pause();
-  if (audioLoaded) bgm.pause();
-  renderFrame(Number(scrub.value) || orig.currentTime || 0);
-  status("已定格当前合成画面。普通浏览器可右键保存画布，小工具内可继续预览调整。");
+  if (!canvas.captureStream || typeof MediaRecorder === "undefined") {
+    status("当前浏览器不支持视频导出，请使用最新版 Chrome 或 Edge。");
+    return;
+  }
+
+  pauseThrough();
+  exporting = true;
+  refreshControls();
+
+  const stream = canvas.captureStream(30);
+  if (audioLoaded && bgm.captureStream) {
+    try {
+      const audioStream = bgm.captureStream();
+      for (const track of audioStream.getAudioTracks()) stream.addTrack(track);
+    } catch (err) {
+      console.warn("背景音乐无法加入导出流", err);
+    }
+  }
+
+  const mime = [
+    "video/mp4;codecs=avc1.42E01E",
+    "video/mp4",
+    "video/webm;codecs=vp9",
+    "video/webm",
+  ].find((type) => MediaRecorder.isTypeSupported(type)) || "video/webm";
+  const isMp4 = mime.startsWith("video/mp4");
+  const recorder = new MediaRecorder(stream, {
+    mimeType: mime,
+    videoBitsPerSecond: 10_000_000,
+  });
+  const chunks = [];
+
+  recorder.ondataavailable = (event) => {
+    if (event.data.size) chunks.push(event.data);
+  };
+  recorder.onerror = (event) => {
+    console.error(event.error || event);
+    exporting = false;
+    stream.getTracks().forEach((track) => track.stop());
+    refreshControls();
+    status("导出失败，请重试或更换最新版 Chrome / Edge。");
+  };
+  recorder.onstop = () => {
+    const extension = isMp4 ? "mp4" : "webm";
+    const blob = new Blob(chunks, { type: mime });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `FrameLab-${new Date().toISOString().slice(0, 10)}.${extension}`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    stream.getTracks().forEach((track) => track.stop());
+    exporting = false;
+    previewing = false;
+    refreshControls();
+    status(`已导出 ${link.download}。`);
+  };
+
+  orig.onended = () => {
+    orig.onended = null;
+    previewing = false;
+    sty.pause();
+    if (audioLoaded) bgm.pause();
+    if (recorder.state !== "inactive") recorder.stop();
+  };
+
+  scrub.value = "0";
+  orig.currentTime = 0;
+  sty.currentTime = 0;
+  if (audioLoaded) bgm.currentTime = 0;
+  updateTimeReadout();
+  recorder.start(1000);
+  playThrough();
 });
 
 btnFrameFit.addEventListener("click", fitFrameToCanvas);
