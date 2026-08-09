@@ -187,6 +187,7 @@ function setPreviewState(state) {
 function refreshControls() {
   const ready = origLoaded && styLoaded && !exporting;
   btnPlay.disabled = !ready;
+  btnPlay.textContent = previewing ? "暂停预览" : "开始预览";
   btnExport.disabled = !ready;
   btnAutoTrack.disabled = !origLoaded;
   scrub.disabled = !origLoaded;
@@ -924,6 +925,15 @@ function playThrough() {
   requestAnimationFrame(loop);
 }
 
+function pauseThrough() {
+  previewing = false;
+  orig.pause();
+  sty.pause();
+  if (audioLoaded) bgm.pause();
+  renderFrame(orig.currentTime || Number(scrub.value) || 0);
+  refreshControls();
+}
+
 function loop() {
   if (!previewing) return;
   if (!orig.ended) requestAnimationFrame(loop);
@@ -932,7 +942,11 @@ function loop() {
 
 btnPlay.addEventListener("click", () => {
   if (exporting || !origLoaded || !styLoaded) return;
-  playThrough();
+  if (previewing) {
+    pauseThrough();
+  } else {
+    playThrough();
+  }
 });
 
 btnExport.addEventListener("click", async () => {
