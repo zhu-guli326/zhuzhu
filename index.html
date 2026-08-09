@@ -549,7 +549,7 @@
     video { display: none; }
     #controls {
       display: grid;
-      grid-template-columns: minmax(0, 1.3fr) minmax(112px, .7fr);
+      grid-template-columns: 1fr 1fr 1fr;
       gap: 8px;
     }
     #controls button {
@@ -831,7 +831,7 @@
       .timeline { padding: 12px; }
       details { padding: 11px 12px; }
       .canvas-wrap { border-radius: 14px; padding: 10px; }
-      #controls { grid-template-columns: 1fr 1fr; }
+      #controls { grid-template-columns: 1fr 1fr 1fr; }
       #controls button { min-height: 46px; }
       .frame-tools { grid-template-columns: 1fr; }
     }
@@ -997,7 +997,8 @@
                 <input id="scrub" type="range" min="0" max="0" step="0.01" value="0" disabled aria-label="调整播放进度" />
               </div>
               <div id="controls">
-                <button id="btn-play" class="primary" disabled>开始预览</button>
+                <button id="btn-play" class="primary" disabled>播放</button>
+                <button id="btn-pause" disabled>暂停</button>
                 <button id="btn-export" disabled>定格画面</button>
               </div>
               <div class="frame-tools" aria-label="取景框操作">

@@ -31,6 +31,7 @@ const emptyPreview = document.getElementById("empty-preview");
 const previewArea = document.getElementById("preview-area");
 const stage = document.getElementById("stage");
 const btnPlay = document.getElementById("btn-play");
+const btnPause = document.getElementById("btn-pause");
 const btnExport = document.getElementById("btn-export");
 const btnFrameFit = document.getElementById("btn-frame-fit");
 const btnFrameReset = document.getElementById("btn-frame-reset");
@@ -186,8 +187,8 @@ function setPreviewState(state) {
 
 function refreshControls() {
   const ready = origLoaded && styLoaded && !exporting;
-  btnPlay.disabled = !ready;
-  btnPlay.textContent = previewing ? "暂停预览" : "开始预览";
+  btnPlay.disabled = !ready || previewing;
+  btnPause.disabled = !ready || !previewing;
   btnExport.disabled = !ready;
   btnAutoTrack.disabled = !origLoaded;
   scrub.disabled = !origLoaded;
@@ -942,11 +943,12 @@ function loop() {
 
 btnPlay.addEventListener("click", () => {
   if (exporting || !origLoaded || !styLoaded) return;
-  if (previewing) {
-    pauseThrough();
-  } else {
-    playThrough();
-  }
+  playThrough();
+});
+
+btnPause.addEventListener("click", () => {
+  if (exporting || !origLoaded || !styLoaded) return;
+  pauseThrough();
 });
 
 btnExport.addEventListener("click", async () => {
