@@ -18,8 +18,10 @@ const JUMP_CONFIRM_FRAMES = 2;
 
 const origInput = document.getElementById("orig-file");
 const styInput = document.getElementById("sty-file");
+const audioInput = document.getElementById("audio-file");
 const orig = document.getElementById("orig");
 const sty = document.getElementById("sty");
+const bgm = document.getElementById("bgm");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 const statusEl = document.getElementById("status");
@@ -49,10 +51,13 @@ const btnExport = document.getElementById("btn-export");
 let landmarker = null;
 let origLoaded = false;
 let styLoaded = false;
+let audioLoaded = false;
 let origName = "";
 let styName = "";
+let audioName = "";
 let origUrl = "";
 let styUrl = "";
+let audioUrl = "";
 let corners = null;
 let presence = 0;
 let frameActive = false;
@@ -75,6 +80,12 @@ function clearVideo(videoEl) {
   videoEl.pause();
   videoEl.removeAttribute("src");
   videoEl.load();
+}
+
+function clearAudio() {
+  bgm.pause();
+  bgm.removeAttribute("src");
+  bgm.load();
 }
 
 function clamp(value, min, max) {
@@ -148,7 +159,11 @@ function refreshControls() {
   previewArea.classList.toggle("ready", origLoaded);
   emptyPreview.hidden = origLoaded;
   if (origLoaded && styLoaded) {
-    status(`已加载 ${origName} 和 ${styName}，可以预览或导出。`);
+    status(
+      `已加载 ${origName} 和 ${styName}` +
+      (audioLoaded ? `，音乐 ${audioName}` : "") +
+      "，可以预览或导出。"
+    );
   } else if (origLoaded) {
     status(`已加载原始视频 ${origName}，请再上传风格视频。`);
   } else if (styLoaded) {
@@ -198,6 +213,21 @@ function loadIntoVideo(videoEl, file) {
       reject(new Error(`无法读取 ${file.name}`));
     };
     videoEl.src = url;
+  });
+}
+
+function loadIntoAudio(audioEl, file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    audioEl.onloadedmetadata = () => {
+      audioEl.onloadedmetadata = null;
+      resolve(url);
+    };
+    audioEl.onerror = () => {
+      audioEl.onerror = null;
+      reject(new Error(`无法读取 ${file.name}`));
+    };
+    audioEl.src = url;
   });
 }
 
@@ -588,6 +618,23 @@ async function handleStylized(file) {
   refreshControls();
 }
 
+async function handleAudio(file) {
+  if (/\.ncm$/i.test(file.name)) {
+    audioInput.value = "";
+    status("这首歌是网易云 .ncm 加密格式，浏览器不能直接使用。请先转换成 mp3、m4a 或 wav 后再上传。");
+    return;
+  }
+  if (audioUrl) URL.revokeObjectURL(audioUrl);
+  clearAudio();
+  audioLoaded = false;
+  audioName = file.name;
+  status(`正在加载背景音乐 ${audioName}…`);
+  audioUrl = await loadIntoAudio(bgm, file);
+  audioLoaded = true;
+  bgm.loop = true;
+  refreshControls();
+}
+
 origInput.addEventListener("change", async (e) => {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
@@ -610,6 +657,18 @@ styInput.addEventListener("change", async (e) => {
   }
 });
 
+audioInput.addEventListener("change", async (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  try {
+    await handleAudio(file);
+  } catch (err) {
+    console.error(err);
+    audioLoaded = false;
+    status("背景音乐加载失败：" + (err.message || err));
+  }
+});
+
 function playThrough() {
   if (!origLoaded || !styLoaded) return;
   resetTracker();
@@ -617,10 +676,12 @@ function playThrough() {
   const startTime = clamp(Number(scrub.value) || 0, 0, getDuration());
   orig.currentTime = startTime;
   sty.currentTime = startTime;
+  if (audioLoaded) bgm.currentTime = startTime % Math.max(bgm.duration || 0.001, 0.001);
   scrub.value = String(startTime);
   updateTimeReadout();
   void orig.play().catch((err) => console.warn("原始视频播放失败", err));
   void sty.play().catch((err) => console.warn("风格视频播放失败", err));
+  if (audioLoaded) void bgm.play().catch((err) => console.warn("背景音乐播放失败", err));
   requestAnimationFrame(loop);
 }
 
@@ -644,6 +705,15 @@ btnExport.addEventListener("click", async () => {
   status("正在导出，需要完整播放一遍视频…");
 
   const stream = canvas.captureStream(30);
+  if (audioLoaded && bgm.captureStream) {
+    try {
+      const audioStream = bgm.captureStream();
+      for (const track of audioStream.getAudioTracks()) stream.addTrack(track);
+    } catch (err) {
+      console.warn("背景音乐无法加入导出流", err);
+      status("背景音乐无法加入导出流，将只导出视频画面。");
+    }
+  }
   const mime = [
     "video/mp4;codecs=avc1.42E01E",
     "video/mp4",
@@ -679,12 +749,14 @@ btnExport.addEventListener("click", async () => {
   const finish = () => {
     orig.onended = null;
     previewing = false;
+    if (audioLoaded) bgm.pause();
     recorder.stop();
   };
   orig.onended = finish;
   recorder.start();
   orig.currentTime = 0;
   sty.currentTime = 0;
+  if (audioLoaded) bgm.currentTime = 0;
   scrub.value = "0";
   updateTimeReadout();
   playThrough();
@@ -692,6 +764,7 @@ btnExport.addEventListener("click", async () => {
 
 orig.addEventListener("pause", () => {
   if (!exporting && !orig.ended) previewing = false;
+  if (!exporting && audioLoaded) bgm.pause();
 });
 
 orig.addEventListener("play", () => {
@@ -704,13 +777,16 @@ scrub.addEventListener("input", () => {
   previewing = false;
   orig.pause();
   sty.pause();
+  if (audioLoaded) bgm.pause();
   orig.onseeked = () => {
     orig.onseeked = null;
     if (styLoaded) sty.currentTime = t;
+    if (audioLoaded) bgm.currentTime = t % Math.max(bgm.duration || 0.001, 0.001);
     renderFrame(t);
   };
   orig.currentTime = t;
   if (styLoaded) sty.currentTime = t;
+  if (audioLoaded) bgm.currentTime = t % Math.max(bgm.duration || 0.001, 0.001);
   updateTimeReadout();
 });
 
@@ -784,16 +860,22 @@ effectEnd.addEventListener("change", syncTimelineBounds);
 window.addEventListener("pageshow", () => {
   origInput.value = "";
   styInput.value = "";
+  audioInput.value = "";
   origLoaded = false;
   styLoaded = false;
+  audioLoaded = false;
   origName = "";
   styName = "";
+  audioName = "";
   if (origUrl) URL.revokeObjectURL(origUrl);
   if (styUrl) URL.revokeObjectURL(styUrl);
+  if (audioUrl) URL.revokeObjectURL(audioUrl);
   origUrl = "";
   styUrl = "";
+  audioUrl = "";
   clearVideo(orig);
   clearVideo(sty);
+  clearAudio();
   scrub.value = "0";
   invertEnabled.checked = false;
   invertStart.value = "0";
@@ -810,6 +892,7 @@ window.addEventListener("pageshow", () => {
 
 clearVideo(orig);
 clearVideo(sty);
+clearAudio();
 previewing = false;
 scrub.value = "0";
 updateTimeReadout();

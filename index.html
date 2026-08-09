@@ -475,6 +475,11 @@
             <input id="sty-file" type="file" accept="video/*" autocomplete="off" />
             <div class="hint">最好和原片时长接近。</div>
           </div>
+          <div class="upload">
+            <div class="field-label">背景音乐 <span>可选</span></div>
+            <input id="audio-file" type="file" accept="audio/*,.mp3,.m4a,.wav,.aac,.ncm" autocomplete="off" />
+            <div class="hint">支持 mp3、m4a、wav；网易云 .ncm 需先转换。</div>
+          </div>
         </div>
 
         <div class="timeline" id="timeline">
@@ -536,6 +541,7 @@
         <div id="stage">
           <video id="orig" playsinline muted></video>
           <video id="sty" playsinline muted crossorigin="anonymous"></video>
+          <audio id="bgm" crossorigin="anonymous"></audio>
                 <div id="preview-area" class="canvas-wrap">
                   <div id="empty-preview" class="empty-preview">
                     <div>
