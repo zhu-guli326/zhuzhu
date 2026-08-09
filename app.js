@@ -14,6 +14,7 @@ const scrub = document.getElementById("scrub");
 const invertEnabled = document.getElementById("invert-enabled");
 const invertStart = document.getElementById("invert-start");
 const invertEnd = document.getElementById("invert-end");
+const invertReadout = document.getElementById("invert-readout");
 const btnSetStart = document.getElementById("btn-set-start");
 const btnSetEnd = document.getElementById("btn-set-end");
 const effectType = document.getElementById("effect-type");
@@ -145,6 +146,14 @@ function updateTimeReadout() {
     `原始 ${formatTime(duration)} · 风格 ${formatTime(getStylizedDuration())}`;
 }
 
+function updateInvertReadout() {
+  if (!invertEnabled.checked) {
+    invertReadout.textContent = "未启用";
+    return;
+  }
+  invertReadout.textContent = `${formatTime(invertStart.value)} - ${formatTime(invertEnd.value)}`;
+}
+
 function syncTimelineBounds() {
   const duration = getDuration();
   scrub.disabled = !origLoaded;
@@ -163,6 +172,7 @@ function syncTimelineBounds() {
   effectStart.value = String(clamp(Number(effectStart.value) || 0, 0, duration || 0));
   effectEnd.value = String(clamp(Number(effectEnd.value) || 0, 0, duration || 0));
   updateTimeReadout();
+  updateInvertReadout();
 }
 
 function clearStylized(reason = "") {
@@ -191,6 +201,9 @@ function refreshControls() {
   btnPause.disabled = !ready || !previewing;
   btnExport.disabled = !ready;
   btnAutoTrack.disabled = !origLoaded;
+  invertEnabled.disabled = !origLoaded;
+  btnSetStart.disabled = !origLoaded;
+  btnSetEnd.disabled = !origLoaded;
   scrub.disabled = !origLoaded;
   previewArea.classList.toggle("ready", origLoaded);
   emptyPreview.hidden = origLoaded;

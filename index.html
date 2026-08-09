@@ -813,6 +813,36 @@
     #controls button:not(.primary) { background: rgba(255, 255, 255, .92); }
     .frame-tools { gap: 8px; grid-template-columns: repeat(3, 1fr); }
     .frame-tools button { min-height: 42px; border-radius: 10px; background: rgba(255, 255, 255, .82); }
+    .mask-control {
+      display: grid;
+      gap: 9px;
+      margin-top: 2px;
+      border: 1px solid rgba(7, 16, 12, .08);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .9);
+      padding: 11px 13px;
+    }
+    .mask-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .mask-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 850;
+    }
+    .mask-head > span {
+      color: var(--muted);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .mask-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .mask-actions button { min-height: 38px; border-radius: 9px; font-size: 12px; }
     #status { margin-top: 2px; border-radius: 12px; background: rgba(255, 255, 255, .72); }
     footer { margin-top: 18px; }
 
@@ -834,6 +864,7 @@
       #controls { grid-template-columns: 1fr 1fr 1fr; }
       #controls button { min-height: 46px; }
       .frame-tools { grid-template-columns: 1fr; }
+      .mask-actions { grid-template-columns: 1fr 1fr; }
     }
   </style>
 </head>
@@ -927,19 +958,6 @@
               <summary>高级</summary>
               <div class="advanced">
                 <div>
-                  <div class="field-label">反向蒙版 <span>可选</span></div>
-                  <div class="controls-grid invert-row">
-                    <label><input id="invert-enabled" type="checkbox" /> 启用</label>
-                    <input id="invert-start" type="number" min="0" step="0.01" value="0" aria-label="反向蒙版起点" />
-                    <input id="invert-end" type="number" min="0" step="0.01" value="0" aria-label="反向蒙版终点" />
-                  </div>
-                  <div class="row-actions">
-                    <button id="btn-set-start" type="button">设为起点</button>
-                    <button id="btn-set-end" type="button">设为终点</button>
-                  </div>
-                </div>
-
-                <div>
                   <div class="field-label">特效片段 <span>叠加在风格视频上</span></div>
                   <div class="controls-grid effect-row">
                     <select id="effect-type" aria-label="特效类型">
@@ -1005,6 +1023,18 @@
                 <button id="btn-auto-track" type="button" disabled>自动识别</button>
                 <button id="btn-frame-reset" type="button">手动取景框</button>
                 <button id="btn-frame-fit" type="button">铺满画面</button>
+              </div>
+              <div class="mask-control" aria-label="反向蒙版操作">
+                <div class="mask-head">
+                  <label class="mask-toggle"><input id="invert-enabled" type="checkbox" disabled /> 反向蒙版</label>
+                  <span id="invert-readout">未启用</span>
+                </div>
+                <div class="mask-actions">
+                  <button id="btn-set-start" type="button" disabled>设为起点</button>
+                  <button id="btn-set-end" type="button" disabled>设为终点</button>
+                </div>
+                <input id="invert-start" type="hidden" value="0" />
+                <input id="invert-end" type="hidden" value="0" />
               </div>
               <div id="status" aria-live="polite"></div>
             </div>
