@@ -34,6 +34,19 @@ const btnPlay = document.getElementById("btn-play");
 const btnExport = document.getElementById("btn-export");
 const btnFrameFit = document.getElementById("btn-frame-fit");
 const btnFrameReset = document.getElementById("btn-frame-reset");
+const btnAutoTrack = document.getElementById("btn-auto-track");
+
+const MEDIAPIPE_TASKS_URL =
+  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+const WASM_URL = `${MEDIAPIPE_TASKS_URL}/wasm`;
+const MODEL_URL =
+  "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+const WRIST = 0;
+const THUMB_TIP = 4;
+const INDEX_TIP = 8;
+const MIDDLE_MCP = 9;
+const MAX_LOST_FRAMES = 25;
+const JUMP_CONFIRM_FRAMES = 2;
 
 let origLoaded = false;
 let styLoaded = false;
@@ -47,11 +60,17 @@ let audioUrl = "";
 let corners = null;
 let presence = 0;
 let frameActive = false;
+let lostFrames = 0;
+let jumpFrames = 0;
 let exporting = false;
 let previewing = false;
 let effectSegments = [];
 let activeCorner = -1;
 let pointerId = null;
+let landmarker = null;
+let landmarkerLoading = null;
+let autoTracking = true;
+let lastVideoTime = -1;
 
 const EFFECT_LABELS = {
   glitch: "故障闪切",
@@ -149,6 +168,7 @@ function refreshControls() {
   const ready = origLoaded && styLoaded && !exporting;
   btnPlay.disabled = !ready;
   btnExport.disabled = !ready;
+  btnAutoTrack.disabled = !origLoaded;
   scrub.disabled = !origLoaded;
   previewArea.classList.toggle("ready", origLoaded);
   emptyPreview.hidden = origLoaded;
@@ -161,7 +181,7 @@ function refreshControls() {
     status(
       `已加载 ${origName} 和 ${styName}` +
       (audioLoaded ? `，音乐 ${audioName}` : "") +
-      "，可以预览或导出。"
+      (autoTracking && landmarker ? "，MediaPipe 会自动识别手势框。" : "，可以手动拖动取景框。")
     );
   } else if (origLoaded) {
     status(`已加载原始视频 ${origName}，请再上传风格视频。`);
@@ -176,6 +196,9 @@ function resetTracker() {
   corners = null;
   presence = 0;
   frameActive = false;
+  lostFrames = 0;
+  jumpFrames = 0;
+  lastVideoTime = -1;
 }
 
 function renderEffectList() {
@@ -253,6 +276,48 @@ function drawPoster() {
   };
 }
 
+async function initLandmarker() {
+  if (landmarker) return landmarker;
+  if (landmarkerLoading) return landmarkerLoading;
+  status("正在加载 MediaPipe 手势识别…");
+  landmarkerLoading = import(`${MEDIAPIPE_TASKS_URL}/vision_bundle.mjs`)
+    .then(async ({ FilesetResolver, HandLandmarker }) => {
+      const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
+      try {
+        landmarker = await HandLandmarker.createFromOptions(fileset, {
+          baseOptions: { modelAssetPath: MODEL_URL, delegate: "GPU" },
+          runningMode: "VIDEO",
+          numHands: 2,
+          minHandDetectionConfidence: 0.3,
+          minHandPresenceConfidence: 0.3,
+          minTrackingConfidence: 0.3,
+        });
+      } catch (err) {
+        console.warn("GPU delegate unavailable, falling back to CPU", err);
+        landmarker = await HandLandmarker.createFromOptions(fileset, {
+          baseOptions: { modelAssetPath: MODEL_URL, delegate: "CPU" },
+          runningMode: "VIDEO",
+          numHands: 2,
+          minHandDetectionConfidence: 0.3,
+          minHandPresenceConfidence: 0.3,
+          minTrackingConfidence: 0.3,
+        });
+      }
+      return landmarker;
+    })
+    .catch((err) => {
+      console.warn("MediaPipe load failed", err);
+      landmarkerLoading = null;
+      status("MediaPipe 加载失败，已切换为手动取景框。");
+      return null;
+    });
+  return landmarkerLoading;
+}
+
+function toPixel(lm) {
+  return { x: lm.x * canvas.width, y: lm.y * canvas.height };
+}
+
 function dist(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
@@ -272,7 +337,77 @@ function defaultQuad() {
   ];
 }
 
+function polygonArea(pts) {
+  let a = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    const q = pts[(i + 1) % pts.length];
+    a += p.x * q.y - q.x * p.y;
+  }
+  return Math.abs(a / 2);
+}
+
+function computeQuad(hands) {
+  if (hands.length !== 2) return null;
+  const info = hands.map((lm) => ({
+    index: toPixel(lm[INDEX_TIP]),
+    thumb: toPixel(lm[THUMB_TIP]),
+    wristX: toPixel(lm[WRIST]).x,
+    scale: dist(toPixel(lm[WRIST]), toPixel(lm[MIDDLE_MCP])) + 1,
+  }));
+  const needed = frameActive ? 0.2 : 0.75;
+  for (const hd of info) {
+    if (dist(hd.thumb, hd.index) < hd.scale * needed) return null;
+  }
+  info.sort((a, b) => a.wristX - b.wristX);
+  const [A, B] = info;
+  const pts = [A.index, B.index, B.thumb, A.thumb];
+  const cx = pts.reduce((s, p) => s + p.x, 0) / 4;
+  const cy = pts.reduce((s, p) => s + p.y, 0) / 4;
+  const hull = [...pts].sort(
+    (a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx)
+  );
+  const minArea = frameActive ? 0.0005 : 0.005;
+  if (polygonArea(hull) < canvas.width * canvas.height * minArea) return null;
+  return pts;
+}
+
+function updateTracker(hands) {
+  const target = computeQuad(hands);
+  if (target) {
+    if (!corners) {
+      corners = target;
+      presence = 1;
+      frameActive = true;
+      lostFrames = 0;
+      jumpFrames = 0;
+      return;
+    }
+    const moved = target.reduce((s, p, i) => s + dist(p, corners[i]), 0) / 4;
+    if (moved > canvas.width * 0.3 && ++jumpFrames < JUMP_CONFIRM_FRAMES) {
+      if (++lostFrames > MAX_LOST_FRAMES) presence = Math.max(0, presence - 0.05);
+      return;
+    }
+    lostFrames = 0;
+    frameActive = true;
+    jumpFrames = 0;
+    const alpha = Math.min(0.85, Math.max(0.35, moved / (canvas.width * 0.05)));
+    corners = corners.map((c, i) => lerpPt(c, target[i], alpha));
+    presence = Math.min(1, presence + 0.12);
+  } else if (corners && ++lostFrames <= MAX_LOST_FRAMES) {
+    presence = Math.min(1, presence + 0.04);
+  } else {
+    presence = Math.max(0, presence - 0.05);
+    if (presence === 0) {
+      corners = null;
+      frameActive = false;
+      jumpFrames = 0;
+    }
+  }
+}
+
 function resetFrameToDefault(showStatus = true) {
+  autoTracking = false;
   corners = defaultQuad();
   presence = 1;
   frameActive = true;
@@ -281,6 +416,7 @@ function resetFrameToDefault(showStatus = true) {
 }
 
 function fitFrameToCanvas() {
+  autoTracking = false;
   corners = [
     { x: canvas.width * 0.08, y: canvas.height * 0.08 },
     { x: canvas.width * 0.92, y: canvas.height * 0.08 },
@@ -291,6 +427,27 @@ function fitFrameToCanvas() {
   frameActive = true;
   status("已铺满取景框，可继续拖动角点调整。");
   renderFrame(Number(scrub.value) || orig.currentTime || 0);
+}
+
+async function enableAutoTracking() {
+  if (!origLoaded) {
+    status("请先上传原始视频。");
+    return;
+  }
+  autoTracking = true;
+  resetTracker();
+  const mp = await initLandmarker();
+  if (mp) {
+    status("已切回 MediaPipe 自动识别。");
+  } else {
+    autoTracking = false;
+    corners = defaultQuad();
+    presence = 1;
+    frameActive = true;
+    status("MediaPipe 暂时不可用，已保留手动取景框。");
+  }
+  renderFrame(Number(scrub.value) || orig.currentTime || 0);
+  refreshControls();
 }
 
 function getInvertRange() {
@@ -467,12 +624,21 @@ function drawEffectOverlay(t) {
 
 function renderFrame(t) {
   if (!origLoaded) return;
-  if (!corners) resetFrameToDefault(false);
   const inverted = isInvertedAtTime(t);
   const baseVideo = inverted ? sty : orig;
   const overlayVideo = inverted ? orig : sty;
   if (baseVideo && baseVideo.readyState >= 2) {
     ctx.drawImage(baseVideo, 0, 0, canvas.width, canvas.height);
+  }
+
+  if (autoTracking && landmarker && orig.currentTime !== lastVideoTime) {
+    lastVideoTime = orig.currentTime;
+    const res = landmarker.detectForVideo(orig, performance.now());
+    updateTracker(res.landmarks || []);
+  } else if (!corners && !autoTracking) {
+    corners = defaultQuad();
+    presence = 1;
+    frameActive = true;
   }
 
   if (styLoaded && Math.abs(sty.currentTime - orig.currentTime) > 0.15) {
@@ -517,6 +683,7 @@ canvas.addEventListener("pointerdown", (evt) => {
   if (!origLoaded) return;
   const hit = nearestCorner(canvasPoint(evt));
   if (hit < 0) return;
+  autoTracking = false;
   activeCorner = hit;
   pointerId = evt.pointerId;
   canvas.setPointerCapture(pointerId);
@@ -595,8 +762,17 @@ async function handleOriginal(file) {
   renderEffectList();
   drawPoster();
   origLoaded = true;
-  resetFrameToDefault(false);
-  status(`已加载原始视频 ${origName}。可拖动预览里的四个角调整取景框。`);
+  autoTracking = true;
+  corners = null;
+  const mp = await initLandmarker();
+  if (mp) {
+    status(`已加载原始视频 ${origName}。MediaPipe 已就绪，会自动识别双手取景框。`);
+  } else {
+    corners = defaultQuad();
+    presence = 1;
+    frameActive = true;
+    status(`已加载原始视频 ${origName}。可拖动预览里的四个角调整取景框。`);
+  }
   syncTimelineBounds();
   refreshControls();
 }
@@ -686,7 +862,7 @@ audioInput.addEventListener("change", async (e) => {
 
 function playThrough() {
   if (!origLoaded || !styLoaded) return;
-  resetTracker();
+  if (autoTracking) resetTracker();
   previewing = true;
   const startTime = clamp(Number(scrub.value) || 0, 0, getDuration());
   orig.currentTime = startTime;
@@ -723,6 +899,7 @@ btnExport.addEventListener("click", async () => {
 
 btnFrameFit.addEventListener("click", fitFrameToCanvas);
 btnFrameReset.addEventListener("click", () => resetFrameToDefault(true));
+btnAutoTrack.addEventListener("click", enableAutoTracking);
 
 orig.addEventListener("pause", () => {
   if (!exporting && !orig.ended) {

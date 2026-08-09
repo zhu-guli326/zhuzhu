@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>FrameLab 取景框合成</title>
+  <title>FrameLab 手势取景合成</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -690,12 +690,12 @@
             </button>
           </div>
         </header>
-        <p class="tagline">上传两段视频，本地合成取景框效果</p>
+        <p class="tagline">上传两段视频，MediaPipe 自动识别手势框</p>
 
         <main class="app" aria-label="手势取景合成工具">
           <section class="panel setup">
-            <h1>取景框合成</h1>
-            <p class="sub">选原片和风格片，拖动预览里的四个角调整取景框。</p>
+            <h1>手势框合成</h1>
+            <p class="sub">选原片和风格片，MediaPipe 会自动识别双手取景框，也可以拖动四角微调。</p>
 
             <div class="upload-list">
               <div class="upload">
@@ -703,7 +703,7 @@
                   <div class="upload-index">1</div>
                   <div class="upload-title">
                     <strong>原始视频</strong>
-                    <span>作为底片</span>
+                    <span>识别手势 · 作为底片</span>
                   </div>
                 </div>
                 <label class="file-picker">
@@ -711,7 +711,7 @@
                   <span class="file-action">选择</span>
                   <span id="orig-file-name" class="file-name">未选择</span>
                 </label>
-                <div class="hint">作为最终时长；画布按原视频分辨率合成，不压缩画质。</div>
+                <div class="hint">建议双手取景框清晰；画布按原视频分辨率合成，不压缩画质。</div>
               </div>
               <div class="upload">
                 <div class="upload-head">
@@ -824,7 +824,8 @@
                 <button id="btn-export" disabled>定格画面</button>
               </div>
               <div class="frame-tools" aria-label="取景框操作">
-                <button id="btn-frame-reset" type="button">重置取景框</button>
+                <button id="btn-auto-track" type="button" disabled>自动识别</button>
+                <button id="btn-frame-reset" type="button">手动取景框</button>
                 <button id="btn-frame-fit" type="button">铺满画面</button>
               </div>
               <div id="status" aria-live="polite"></div>
@@ -832,7 +833,7 @@
           </section>
         </main>
 
-        <footer>FrameLab · 本地浏览器合成 · 原分辨率画布</footer>
+        <footer>FrameLab · MediaPipe 手势识别 · 原分辨率画布</footer>
       </div>
     </div>
   </div>
