@@ -35,6 +35,7 @@ const btnExport = document.getElementById("btn-export");
 const btnFrameFit = document.getElementById("btn-frame-fit");
 const btnFrameReset = document.getElementById("btn-frame-reset");
 const btnAutoTrack = document.getElementById("btn-auto-track");
+const uploadCards = document.querySelectorAll(".upload[data-file-target]");
 
 const MEDIAPIPE_TASKS_URL =
   "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
@@ -96,6 +97,24 @@ function setFileName(el, name) {
   el.textContent = name || "未选择";
   el.title = name || "";
 }
+
+function openFilePicker(card) {
+  const input = document.getElementById(card.dataset.fileTarget);
+  if (input) input.click();
+}
+
+uploadCards.forEach((card) => {
+  card.addEventListener("click", (evt) => {
+    if (evt.target.closest("input[type='file']")) return;
+    if (evt.target.closest("label.file-picker")) return;
+    openFilePicker(card);
+  });
+  card.addEventListener("keydown", (evt) => {
+    if (evt.key !== "Enter" && evt.key !== " ") return;
+    evt.preventDefault();
+    openFilePicker(card);
+  });
+});
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));

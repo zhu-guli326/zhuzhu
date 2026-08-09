@@ -186,6 +186,15 @@
       border-radius: 18px;
       background: rgba(236, 240, 232, .86);
       padding: 12px;
+      cursor: pointer;
+      transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
+    }
+    .upload:hover,
+    .upload:focus-visible {
+      border-color: rgba(7, 59, 45, .28);
+      background: rgba(229, 238, 220, .96);
+      box-shadow: 0 8px 20px rgba(14, 31, 23, .08);
+      outline: none;
     }
     .upload-head {
       display: flex;
@@ -698,7 +707,7 @@
             <p class="sub">选原片和风格片，MediaPipe 会自动识别双手取景框，也可以拖动四角微调。</p>
 
             <div class="upload-list">
-              <div class="upload">
+              <div class="upload" data-file-target="orig-file" role="button" tabindex="0" aria-label="选择原始视频">
                 <div class="upload-head">
                   <div class="upload-index">1</div>
                   <div class="upload-title">
@@ -713,7 +722,7 @@
                 </label>
                 <div class="hint">建议双手取景框清晰；画布按原视频分辨率合成，不压缩画质。</div>
               </div>
-              <div class="upload">
+              <div class="upload" data-file-target="sty-file" role="button" tabindex="0" aria-label="选择风格视频">
                 <div class="upload-head">
                   <div class="upload-index">2</div>
                   <div class="upload-title">
@@ -728,7 +737,7 @@
                 </label>
                 <div class="hint">最好和原片时长接近。</div>
               </div>
-              <div class="upload">
+              <div class="upload" data-file-target="audio-file" role="button" tabindex="0" aria-label="选择背景音乐">
                 <div class="upload-head">
                   <div class="upload-index">3</div>
                   <div class="upload-title">
