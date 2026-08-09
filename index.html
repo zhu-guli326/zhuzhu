@@ -738,6 +738,22 @@
       font-size: 12px;
     }
     .file-name { font-size: 13px; }
+    .upload[data-file-target="orig-file"] .file-picker,
+    .upload[data-file-target="sty-file"] .file-picker {
+      min-height: 64px;
+      padding: 8px;
+    }
+    .upload[data-file-target="orig-file"] .file-action,
+    .upload[data-file-target="sty-file"] .file-action {
+      min-width: 112px;
+      min-height: 48px;
+      border-radius: 11px;
+      font-size: 16px;
+    }
+    .upload[data-file-target="orig-file"] .file-name,
+    .upload[data-file-target="sty-file"] .file-name {
+      font-size: 15px;
+    }
     .hint {
       margin: 9px 2px 0;
       color: #7a847e;
@@ -792,6 +808,13 @@
       h1 { font-size: 36px; }
       .sub { margin-bottom: 16px; }
       .upload { padding: 12px; }
+      .upload[data-file-target="orig-file"] .file-picker,
+      .upload[data-file-target="sty-file"] .file-picker { min-height: 62px; }
+      .upload[data-file-target="orig-file"] .file-action,
+      .upload[data-file-target="sty-file"] .file-action {
+        min-width: 104px;
+        min-height: 46px;
+      }
       .timeline { padding: 12px; }
       details { padding: 11px 12px; }
       .canvas-wrap { border-radius: 14px; padding: 10px; }
