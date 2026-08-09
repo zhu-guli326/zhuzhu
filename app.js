@@ -1,24 +1,9 @@
-import {
-  HandLandmarker,
-  FilesetResolver,
-} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
-
-const WASM_URL =
-  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
-const MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
-
-const WRIST = 0;
-const THUMB_TIP = 4;
-const INDEX_TIP = 8;
-const MIDDLE_MCP = 9;
-
-const MAX_LOST_FRAMES = 25;
-const JUMP_CONFIRM_FRAMES = 2;
-
 const origInput = document.getElementById("orig-file");
 const styInput = document.getElementById("sty-file");
 const audioInput = document.getElementById("audio-file");
+const origFileName = document.getElementById("orig-file-name");
+const styFileName = document.getElementById("sty-file-name");
+const audioFileName = document.getElementById("audio-file-name");
 const orig = document.getElementById("orig");
 const sty = document.getElementById("sty");
 const bgm = document.getElementById("bgm");
@@ -47,8 +32,9 @@ const previewArea = document.getElementById("preview-area");
 const stage = document.getElementById("stage");
 const btnPlay = document.getElementById("btn-play");
 const btnExport = document.getElementById("btn-export");
+const btnFrameFit = document.getElementById("btn-frame-fit");
+const btnFrameReset = document.getElementById("btn-frame-reset");
 
-let landmarker = null;
 let origLoaded = false;
 let styLoaded = false;
 let audioLoaded = false;
@@ -61,13 +47,11 @@ let audioUrl = "";
 let corners = null;
 let presence = 0;
 let frameActive = false;
-let lostFrames = 0;
-let jumpFrames = 0;
-let recorder = null;
 let exporting = false;
-let lastVideoTime = -1;
 let previewing = false;
 let effectSegments = [];
+let activeCorner = -1;
+let pointerId = null;
 
 const EFFECT_LABELS = {
   glitch: "故障闪切",
@@ -86,6 +70,11 @@ function clearAudio() {
   bgm.pause();
   bgm.removeAttribute("src");
   bgm.load();
+}
+
+function setFileName(el, name) {
+  el.textContent = name || "未选择";
+  el.title = name || "";
 }
 
 function clamp(value, min, max) {
@@ -142,6 +131,7 @@ function clearStylized(reason = "") {
   styName = "";
   styLoaded = false;
   styInput.value = "";
+  setFileName(styFileName, "");
   clearVideo(sty);
   if (reason) status(reason);
 }
@@ -151,6 +141,10 @@ function status(msg) {
   statusEl.classList.toggle("working", /…\s*$/.test(msg));
 }
 
+function setPreviewState(state) {
+  previewArea.dataset.state = state;
+}
+
 function refreshControls() {
   const ready = origLoaded && styLoaded && !exporting;
   btnPlay.disabled = !ready;
@@ -158,7 +152,12 @@ function refreshControls() {
   scrub.disabled = !origLoaded;
   previewArea.classList.toggle("ready", origLoaded);
   emptyPreview.hidden = origLoaded;
-  if (origLoaded && styLoaded) {
+  setPreviewState(exporting ? "exporting" : previewing ? "playing" : ready ? "ready" : "empty");
+  if (exporting) {
+    status("正在导出，需要完整播放一遍视频…");
+  } else if (previewing) {
+    status("正在预览…");
+  } else if (origLoaded && styLoaded) {
     status(
       `已加载 ${origName} 和 ${styName}` +
       (audioLoaded ? `，音乐 ${audioName}` : "") +
@@ -177,9 +176,6 @@ function resetTracker() {
   corners = null;
   presence = 0;
   frameActive = false;
-  lostFrames = 0;
-  jumpFrames = 0;
-  lastVideoTime = -1;
 }
 
 function renderEffectList() {
@@ -204,15 +200,31 @@ function renderEffectList() {
 function loadIntoVideo(videoEl, file) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
-    videoEl.onloadedmetadata = () => {
+    let settled = false;
+    const cleanup = () => {
       videoEl.onloadedmetadata = null;
+      videoEl.oncanplay = null;
+      videoEl.onerror = null;
+    };
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
       resolve(url);
     };
     videoEl.onerror = () => {
-      videoEl.onerror = null;
-      reject(new Error(`无法读取 ${file.name}`));
+      if (settled) return;
+      settled = true;
+      cleanup();
+      URL.revokeObjectURL(url);
+      const detail = videoEl.error && videoEl.error.message ? `：${videoEl.error.message}` : "";
+      reject(new Error(`无法读取 ${file.name}${detail}`));
     };
+    videoEl.onloadedmetadata = done;
+    videoEl.oncanplay = done;
+    videoEl.preload = "auto";
     videoEl.src = url;
+    videoEl.load();
   });
 }
 
@@ -241,38 +253,6 @@ function drawPoster() {
   };
 }
 
-async function initLandmarker() {
-  if (landmarker) return landmarker;
-  status("正在加载手部追踪器…");
-  const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
-  try {
-    landmarker = await HandLandmarker.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath: MODEL_URL, delegate: "GPU" },
-      runningMode: "VIDEO",
-      numHands: 2,
-      minHandDetectionConfidence: 0.3,
-      minHandPresenceConfidence: 0.3,
-      minTrackingConfidence: 0.3,
-    });
-  } catch (err) {
-    console.warn("GPU delegate unavailable, falling back to CPU", err);
-    landmarker = await HandLandmarker.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath: MODEL_URL, delegate: "CPU" },
-      runningMode: "VIDEO",
-      numHands: 2,
-      minHandDetectionConfidence: 0.3,
-      minHandPresenceConfidence: 0.3,
-      minTrackingConfidence: 0.3,
-    });
-  }
-  status("手部追踪器已就绪。");
-  return landmarker;
-}
-
-function toPixel(lm) {
-  return { x: lm.x * canvas.width, y: lm.y * canvas.height };
-}
-
 function dist(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
@@ -281,39 +261,36 @@ function lerpPt(a, b, t) {
   return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
 }
 
-function polygonArea(pts) {
-  let a = 0;
-  for (let i = 0; i < pts.length; i++) {
-    const p = pts[i];
-    const q = pts[(i + 1) % pts.length];
-    a += p.x * q.y - q.x * p.y;
-  }
-  return Math.abs(a / 2);
+function defaultQuad() {
+  const w = canvas.width || 1280;
+  const h = canvas.height || 720;
+  return [
+    { x: w * 0.22, y: h * 0.23 },
+    { x: w * 0.78, y: h * 0.20 },
+    { x: w * 0.82, y: h * 0.72 },
+    { x: w * 0.18, y: h * 0.76 },
+  ];
 }
 
-function computeQuad(hands) {
-  if (hands.length !== 2) return null;
-  const info = hands.map((lm) => ({
-    index: toPixel(lm[INDEX_TIP]),
-    thumb: toPixel(lm[THUMB_TIP]),
-    wristX: toPixel(lm[WRIST]).x,
-    scale: dist(toPixel(lm[WRIST]), toPixel(lm[MIDDLE_MCP])) + 1,
-  }));
-  const needed = frameActive ? 0.2 : 0.75;
-  for (const hd of info) {
-    if (dist(hd.thumb, hd.index) < hd.scale * needed) return null;
-  }
-  info.sort((a, b) => a.wristX - b.wristX);
-  const [A, B] = info;
-  const pts = [A.index, B.index, B.thumb, A.thumb];
-  const cx = pts.reduce((s, p) => s + p.x, 0) / 4;
-  const cy = pts.reduce((s, p) => s + p.y, 0) / 4;
-  const hull = [...pts].sort(
-    (a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx)
-  );
-  const minArea = frameActive ? 0.0005 : 0.005;
-  if (polygonArea(hull) < canvas.width * canvas.height * minArea) return null;
-  return pts;
+function resetFrameToDefault(showStatus = true) {
+  corners = defaultQuad();
+  presence = 1;
+  frameActive = true;
+  if (showStatus) status("已重置取景框，可拖动四个角微调。");
+  renderFrame(Number(scrub.value) || orig.currentTime || 0);
+}
+
+function fitFrameToCanvas() {
+  corners = [
+    { x: canvas.width * 0.08, y: canvas.height * 0.08 },
+    { x: canvas.width * 0.92, y: canvas.height * 0.08 },
+    { x: canvas.width * 0.92, y: canvas.height * 0.92 },
+    { x: canvas.width * 0.08, y: canvas.height * 0.92 },
+  ];
+  presence = 1;
+  frameActive = true;
+  status("已铺满取景框，可继续拖动角点调整。");
+  renderFrame(Number(scrub.value) || orig.currentTime || 0);
 }
 
 function getInvertRange() {
@@ -333,40 +310,6 @@ function getInvertRange() {
 function isInvertedAtTime(t) {
   const range = getInvertRange();
   return !!range && t >= range.start && t <= range.end;
-}
-
-function updateTracker(hands) {
-  const target = computeQuad(hands);
-  if (target) {
-    if (!corners) {
-      lostFrames = 0;
-      frameActive = true;
-      jumpFrames = 0;
-      corners = target;
-      presence = Math.min(1, presence + 0.12);
-    } else {
-      const moved = target.reduce((s, p, i) => s + dist(p, corners[i]), 0) / 4;
-      if (moved > canvas.width * 0.3 && ++jumpFrames < JUMP_CONFIRM_FRAMES) {
-        if (++lostFrames > MAX_LOST_FRAMES) presence = Math.max(0, presence - 0.05);
-      } else {
-        lostFrames = 0;
-        frameActive = true;
-        jumpFrames = 0;
-        const alpha = Math.min(0.85, Math.max(0.35, moved / (canvas.width * 0.05)));
-        corners = corners.map((c, i) => lerpPt(c, target[i], alpha));
-        presence = Math.min(1, presence + 0.12);
-      }
-    }
-  } else if (corners && ++lostFrames <= MAX_LOST_FRAMES) {
-    presence = Math.min(1, presence + 0.12);
-  } else {
-    presence = Math.max(0, presence - 0.05);
-    if (presence === 0) {
-      corners = null;
-      frameActive = false;
-      jumpFrames = 0;
-    }
-  }
 }
 
 function quadPath(q) {
@@ -524,17 +467,12 @@ function drawEffectOverlay(t) {
 
 function renderFrame(t) {
   if (!origLoaded) return;
+  if (!corners) resetFrameToDefault(false);
   const inverted = isInvertedAtTime(t);
   const baseVideo = inverted ? sty : orig;
   const overlayVideo = inverted ? orig : sty;
   if (baseVideo && baseVideo.readyState >= 2) {
     ctx.drawImage(baseVideo, 0, 0, canvas.width, canvas.height);
-  }
-
-  if (landmarker && orig.currentTime !== lastVideoTime) {
-    lastVideoTime = orig.currentTime;
-    const res = landmarker.detectForVideo(orig, performance.now());
-    updateTracker(res.landmarks || []);
   }
 
   if (styLoaded && Math.abs(sty.currentTime - orig.currentTime) > 0.15) {
@@ -551,6 +489,57 @@ function renderFrame(t) {
   scrub.value = String(t);
   updateTimeReadout();
 }
+
+function canvasPoint(evt) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: ((evt.clientX - rect.left) / rect.width) * canvas.width,
+    y: ((evt.clientY - rect.top) / rect.height) * canvas.height,
+  };
+}
+
+function nearestCorner(pt) {
+  if (!corners) return -1;
+  const hitRadius = Math.max(canvas.width, canvas.height) * 0.055;
+  let best = -1;
+  let bestDistance = Infinity;
+  corners.forEach((corner, index) => {
+    const d = dist(pt, corner);
+    if (d < bestDistance) {
+      bestDistance = d;
+      best = index;
+    }
+  });
+  return bestDistance <= hitRadius ? best : -1;
+}
+
+canvas.addEventListener("pointerdown", (evt) => {
+  if (!origLoaded) return;
+  const hit = nearestCorner(canvasPoint(evt));
+  if (hit < 0) return;
+  activeCorner = hit;
+  pointerId = evt.pointerId;
+  canvas.setPointerCapture(pointerId);
+});
+
+canvas.addEventListener("pointermove", (evt) => {
+  if (activeCorner < 0 || !corners) return;
+  const pt = canvasPoint(evt);
+  corners[activeCorner] = {
+    x: clamp(pt.x, 0, canvas.width),
+    y: clamp(pt.y, 0, canvas.height),
+  };
+  presence = 1;
+  renderFrame(Number(scrub.value) || orig.currentTime || 0);
+});
+
+function releaseCorner() {
+  activeCorner = -1;
+  pointerId = null;
+}
+
+canvas.addEventListener("pointerup", releaseCorner);
+canvas.addEventListener("pointercancel", releaseCorner);
 
 async function stepAt(t) {
   if (!origLoaded) {
@@ -578,12 +567,19 @@ async function stepAt(t) {
 window.__step = stepAt;
 
 async function handleOriginal(file) {
+  if (!/^video\//.test(file.type) && !/\.(mp4|mov|m4v|webm)$/i.test(file.name)) {
+    origInput.value = "";
+    setFileName(origFileName, "");
+    status("原始视频需要上传 mp4、mov、m4v 或 webm 视频文件。");
+    return;
+  }
   if (origUrl) URL.revokeObjectURL(origUrl);
   orig.pause();
   clearStylized();
   resetTracker();
   origLoaded = false;
   origName = file.name;
+  setFileName(origFileName, origName);
   status(`正在加载原始视频 ${origName}…`);
   origUrl = await loadIntoVideo(orig, file);
   canvas.width = orig.videoWidth;
@@ -599,17 +595,24 @@ async function handleOriginal(file) {
   renderEffectList();
   drawPoster();
   origLoaded = true;
-  await initLandmarker();
-  status(`已加载原始视频 ${origName}。请重新上传本次要使用的风格视频。`);
+  resetFrameToDefault(false);
+  status(`已加载原始视频 ${origName}。可拖动预览里的四个角调整取景框。`);
   syncTimelineBounds();
   refreshControls();
 }
 
 async function handleStylized(file) {
+  if (!/^video\//.test(file.type) && !/\.(mp4|mov|m4v|webm)$/i.test(file.name)) {
+    styInput.value = "";
+    setFileName(styFileName, "");
+    status("风格视频需要上传 mp4、mov、m4v 或 webm 视频文件。");
+    return;
+  }
   if (styUrl) URL.revokeObjectURL(styUrl);
   clearVideo(sty);
   styLoaded = false;
   styName = file.name;
+  setFileName(styFileName, styName);
   status(`正在加载风格视频 ${styName}…`);
   styUrl = await loadIntoVideo(sty, file);
   styLoaded = true;
@@ -619,8 +622,15 @@ async function handleStylized(file) {
 }
 
 async function handleAudio(file) {
+  if (!/^audio\//.test(file.type) && !/\.(mp3|m4a|wav|aac|ncm)$/i.test(file.name)) {
+    audioInput.value = "";
+    setFileName(audioFileName, "");
+    status("背景音乐只能上传音频文件；不要把视频放到这里。");
+    return;
+  }
   if (/\.ncm$/i.test(file.name)) {
     audioInput.value = "";
+    setFileName(audioFileName, "");
     status("这首歌是网易云 .ncm 加密格式，浏览器不能直接使用。请先转换成 mp3、m4a 或 wav 后再上传。");
     return;
   }
@@ -628,6 +638,7 @@ async function handleAudio(file) {
   clearAudio();
   audioLoaded = false;
   audioName = file.name;
+  setFileName(audioFileName, audioName);
   status(`正在加载背景音乐 ${audioName}…`);
   audioUrl = await loadIntoAudio(bgm, file);
   audioLoaded = true;
@@ -653,7 +664,11 @@ styInput.addEventListener("change", async (e) => {
     await handleStylized(file);
   } catch (err) {
     console.error(err);
-    status("风格视频加载失败：" + (err.message || err));
+    status(
+      "风格视频加载失败：" +
+      (err.message || err) +
+      "。如果这是 mp4，请先用 faststart 重新封装后再上传。"
+    );
   }
 });
 
@@ -693,82 +708,35 @@ function loop() {
 
 btnPlay.addEventListener("click", () => {
   if (exporting || !origLoaded || !styLoaded) return;
-  status("正在预览…");
   playThrough();
 });
 
 btnExport.addEventListener("click", async () => {
   if (exporting || !origLoaded || !styLoaded) return;
-  exporting = true;
-  btnExport.disabled = true;
-  btnPlay.disabled = true;
-  status("正在导出，需要完整播放一遍视频…");
-
-  const stream = canvas.captureStream(30);
-  if (audioLoaded && bgm.captureStream) {
-    try {
-      const audioStream = bgm.captureStream();
-      for (const track of audioStream.getAudioTracks()) stream.addTrack(track);
-    } catch (err) {
-      console.warn("背景音乐无法加入导出流", err);
-      status("背景音乐无法加入导出流，将只导出视频画面。");
-    }
-  }
-  const mime = [
-    "video/mp4;codecs=avc1.42E01E",
-    "video/mp4",
-    "video/webm;codecs=vp9",
-    "video/webm",
-  ].find((m) => MediaRecorder.isTypeSupported(m)) || "video/webm";
-  const isMp4 = mime.startsWith("video/mp4");
-  recorder = new MediaRecorder(stream, {
-    mimeType: mime,
-    videoBitsPerSecond: 10_000_000,
-  });
-
-  const chunks = [];
-  recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
-  recorder.onstop = () => {
-    const ext = isMp4 ? "mp4" : "webm";
-    const blob = new Blob(chunks, { type: isMp4 ? "video/mp4" : "video/webm" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `手势取景合成.${ext}`;
-    a.click();
-    status(
-      `已导出 手势取景合成.${ext}。` +
-      (isMp4
-        ? ""
-        : "（当前浏览器录制为 WebM，可用 ffmpeg -i 手势取景合成.webm -c:v libx264 out.mp4 转成 MP4。）")
-    );
-    exporting = false;
-    btnExport.disabled = false;
-    btnPlay.disabled = false;
-  };
-
-  const finish = () => {
-    orig.onended = null;
-    previewing = false;
-    if (audioLoaded) bgm.pause();
-    recorder.stop();
-  };
-  orig.onended = finish;
-  recorder.start();
-  orig.currentTime = 0;
-  sty.currentTime = 0;
-  if (audioLoaded) bgm.currentTime = 0;
-  scrub.value = "0";
-  updateTimeReadout();
-  playThrough();
+  previewing = false;
+  orig.pause();
+  sty.pause();
+  if (audioLoaded) bgm.pause();
+  renderFrame(Number(scrub.value) || orig.currentTime || 0);
+  status("已定格当前合成画面。普通浏览器可右键保存画布，小工具内可继续预览调整。");
 });
 
+btnFrameFit.addEventListener("click", fitFrameToCanvas);
+btnFrameReset.addEventListener("click", () => resetFrameToDefault(true));
+
 orig.addEventListener("pause", () => {
-  if (!exporting && !orig.ended) previewing = false;
+  if (!exporting && !orig.ended) {
+    previewing = false;
+    refreshControls();
+  }
   if (!exporting && audioLoaded) bgm.pause();
 });
 
 orig.addEventListener("play", () => {
-  if (!exporting) previewing = true;
+  if (!exporting) {
+    previewing = true;
+    refreshControls();
+  }
 });
 
 scrub.addEventListener("input", () => {
@@ -776,6 +744,7 @@ scrub.addEventListener("input", () => {
   const t = clamp(Number(scrub.value) || 0, 0, getDuration());
   previewing = false;
   orig.pause();
+  refreshControls();
   sty.pause();
   if (audioLoaded) bgm.pause();
   orig.onseeked = () => {
@@ -788,6 +757,7 @@ scrub.addEventListener("input", () => {
   if (styLoaded) sty.currentTime = t;
   if (audioLoaded) bgm.currentTime = t % Math.max(bgm.duration || 0.001, 0.001);
   updateTimeReadout();
+  refreshControls();
 });
 
 function setInvertPoint(which) {
@@ -861,6 +831,9 @@ window.addEventListener("pageshow", () => {
   origInput.value = "";
   styInput.value = "";
   audioInput.value = "";
+  setFileName(origFileName, "");
+  setFileName(styFileName, "");
+  setFileName(audioFileName, "");
   origLoaded = false;
   styLoaded = false;
   audioLoaded = false;
@@ -895,5 +868,9 @@ clearVideo(sty);
 clearAudio();
 previewing = false;
 scrub.value = "0";
+setFileName(origFileName, "");
+setFileName(styFileName, "");
+setFileName(audioFileName, "");
+setPreviewState("empty");
 updateTimeReadout();
 refreshControls();
