@@ -527,13 +527,28 @@
     video { display: none; }
     #controls {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-columns: 1fr 1fr;
       gap: 8px;
     }
     #controls button {
       width: 100%;
       min-height: 48px;
       padding: 10px 12px;
+    }
+    #btn-export {
+      grid-column: 1 / -1;
+      min-height: 56px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      font-size: 15px;
+    }
+    #btn-export svg {
+      width: 19px;
+      height: 19px;
+      flex: none;
+      stroke: currentColor;
     }
     #status {
       display: none;
@@ -835,8 +850,9 @@
       .timeline { padding: 12px; }
       details { padding: 11px 12px; }
       .canvas-wrap { border-radius: 14px; padding: 10px; }
-      #controls { grid-template-columns: 1fr 1fr 1fr; }
+      #controls { grid-template-columns: 1fr 1fr; }
       #controls button { min-height: 46px; }
+      #btn-export { min-height: 54px; }
       .frame-tools { grid-template-columns: 1fr; }
       .mask-actions { grid-template-columns: 1fr 1fr; }
     }
@@ -976,9 +992,16 @@
                 <input id="scrub" type="range" min="0" max="0" step="0.01" value="0" disabled aria-label="调整播放进度" />
               </div>
               <div id="controls">
-                <button id="btn-play" class="primary" disabled>播放</button>
+                <button id="btn-play" disabled>播放</button>
                 <button id="btn-pause" disabled>暂停</button>
-                <button id="btn-export" disabled>导出视频</button>
+                <button id="btn-export" class="primary" disabled>
+                  <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 3v12" />
+                    <path d="m7 10 5 5 5-5" />
+                    <path d="M5 21h14" />
+                  </svg>
+                  <span>导出最终视频</span>
+                </button>
               </div>
               <div class="frame-tools" aria-label="取景框操作">
                 <button id="btn-auto-track" type="button" disabled>自动识别</button>
