@@ -671,7 +671,9 @@ function refreshControls() {
   btnSetStart.disabled = !origLoaded;
   btnSetEnd.disabled = !origLoaded;
   scrub.disabled = !origLoaded;
-  editingControls.hidden = !origLoaded;
+  // Keep the workflow visible before upload. Individual controls remain disabled
+  // until the original video provides a duration and a valid preview surface.
+  editingControls.hidden = false;
   refreshFrameModeButtons();
   previewArea.classList.toggle("ready", origLoaded);
   emptyPreview.hidden = origLoaded;
