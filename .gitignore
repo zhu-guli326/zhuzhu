@@ -9,10 +9,11 @@
 !demo-inside.mp4
 !demo-output.mp4
 
-# Python
-.venv/
-__pycache__/
+# Build output
 dist/
+
+# Local Python bytecode may remain from earlier tooling.
+__pycache__/
 
 # Tooling
 .claude/

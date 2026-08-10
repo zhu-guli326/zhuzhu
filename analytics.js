@@ -6,7 +6,6 @@
     "Upload Rejected": "upload_rejected",
     "Upload Failed": "upload_failed",
     "Language Changed": "language_changed",
-    "Contact Clicked": "contact_clicked",
     "Effect Added": "effect_added",
     "Effect Removed": "effect_removed",
     "Preview Started": "preview_started",
