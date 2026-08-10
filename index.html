@@ -140,14 +140,13 @@
       border-radius: 999px;
       background: var(--lime);
       flex: none;
+      display: grid;
+      place-items: center;
     }
-    .brand-mark::before {
-      content: "";
-      position: absolute;
-      inset: 10px 8px;
-      border: 3px solid var(--green);
-      border-top: 0;
-      transform: skewX(-14deg) rotate(-8deg);
+    .brand-mark svg {
+      display: block;
+      width: 25px;
+      height: 25px;
     }
     .tagline {
       color: var(--muted);
@@ -705,10 +704,8 @@
       fill: currentColor;
     }
     .social-link.xiaohongshu {
-      border-color: transparent;
-      background: #ff2442;
-      color: #fff;
-      box-shadow: 0 10px 24px rgba(255, 36, 66, .16);
+      background: rgba(255, 255, 255, .72);
+      color: var(--ink);
     }
     .social-link.xiaohongshu svg {
       width: 30px;
@@ -720,8 +717,8 @@
       box-shadow: 0 10px 24px rgba(14, 31, 23, .08);
     }
     .social-link.xiaohongshu:hover {
-      background: #ff2442;
-      box-shadow: 0 12px 28px rgba(255, 36, 66, .22);
+      background: #fff;
+      box-shadow: 0 10px 24px rgba(14, 31, 23, .08);
     }
     .lang-switch {
       display: inline-flex;
@@ -749,7 +746,7 @@
       box-shadow: none;
     }
     .lang-switch button[aria-pressed="true"] {
-      background: var(--green);
+      background: #111;
       color: #fff;
     }
     .tagline {
@@ -996,7 +993,12 @@
       <div class="screen">
         <header class="topbar">
           <div class="brand">
-            <span class="brand-mark" aria-hidden="true"></span>
+            <span class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8 12V8H12M20 8H24V12M24 20V24H20M12 24H8V20" stroke="#073B2D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M14 12.5L21 16L14 19.5V12.5Z" fill="#073B2D" />
+              </svg>
+            </span>
             <span>FrameLab</span>
           </div>
           <div class="top-actions">
