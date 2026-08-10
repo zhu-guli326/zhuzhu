@@ -772,10 +772,6 @@ function applyEffect(q) {
       drawLiveNeonScan(w, h);
       break;
     }
-    case "pulse": {
-      drawLiveShockPulse(w, h, q);
-      break;
-    }
     case "focus": {
       drawLiveDarkFocus(w, h);
       break;
@@ -1086,29 +1082,6 @@ function drawLiveNeonScan(w, h) {
   for (let row = -stripe; row < h + stripe; row += stripe * 3) {
     ctx.fillRect(0, row + ((t * 120) % (stripe * 3)), w, 1.5);
   }
-  ctx.globalCompositeOperation = "source-over";
-}
-
-function drawLiveShockPulse(w, h, q) {
-  const t = performance.now() / 1000;
-  const p = (t * 0.74) % 1;
-  const bb = quadBBox(q);
-  const cx = (bb.x0 + bb.x1) / 2;
-  const cy = (bb.y0 + bb.y1) / 2;
-  const maxR = Math.hypot(w, h) * 0.54;
-  ctx.filter = "saturate(1.2) contrast(1.16)";
-  drawMirrored(ctx, w, h);
-  ctx.filter = "none";
-  ctx.globalCompositeOperation = "screen";
-  ctx.lineWidth = Math.max(4, 26 * (1 - p));
-  ctx.strokeStyle = `rgba(255, 194, 75, ${(1 - p) * 0.82})`;
-  ctx.beginPath();
-  ctx.arc(cx, cy, maxR * p, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.globalAlpha = (1 - p) * 0.16;
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, w, h);
-  ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = "source-over";
 }
 

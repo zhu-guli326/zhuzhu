@@ -69,7 +69,6 @@ const SHARED_EFFECTS = Array.isArray(window.FRAMELAB_EFFECTS) && window.FRAMELAB
   : [
       { id: "glitch", labelKey: "effectGlitch" },
       { id: "scan", labelKey: "effectScan" },
-      { id: "pulse", labelKey: "effectPulse" },
       { id: "focus", labelKey: "effectFocus" },
       { id: "feedback", labelKey: "effectFeedback" },
       { id: "rgb", labelKey: "effectRgb" },
@@ -149,7 +148,6 @@ const I18N = {
     effectIntensityAria: "特效强度",
     effectGlitch: "故障闪切",
     effectScan: "霓虹扫描",
-    effectPulse: "冲击波",
     effectFocus: "暗场聚焦",
     effectFeedback: "反馈残影",
     effectRgb: "RGB 分离",
@@ -268,7 +266,6 @@ const I18N = {
     effectIntensityAria: "Effect intensity",
     effectGlitch: "Glitch Cut",
     effectScan: "Neon Scan",
-    effectPulse: "Shock Pulse",
     effectFocus: "Dark Focus",
     effectFeedback: "Feedback Echo",
     effectRgb: "RGB Split",
@@ -1135,24 +1132,6 @@ function drawNeonScan(seg, t) {
   ctx.restore();
 }
 
-function drawShockPulse(seg, t) {
-  const p = segmentProgress(seg, t);
-  const cx = canvas.width / 2;
-  const cy = canvas.height / 2;
-  const maxR = Math.hypot(canvas.width, canvas.height) * 0.55;
-  ctx.save();
-  ctx.globalCompositeOperation = "screen";
-  ctx.lineWidth = Math.max(4, 18 * (1 - p));
-  ctx.strokeStyle = `rgba(255,194,75,${(1 - p) * 0.75 * seg.intensity})`;
-  ctx.beginPath();
-  ctx.arc(cx, cy, maxR * p, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.globalAlpha = (1 - p) * 0.12 * seg.intensity;
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.restore();
-}
-
 function drawDarkFocus(seg, t) {
   const p = segmentProgress(seg, t);
   const pulse = 0.75 + 0.25 * Math.sin(p * Math.PI * 4);
@@ -1320,7 +1299,6 @@ function drawEffectOverlay(t) {
   for (const seg of activeEffectSegments(t)) {
     if (seg.type === "glitch") drawFlashGlitch(seg, t);
     if (seg.type === "scan") drawNeonScan(seg, t);
-    if (seg.type === "pulse") drawShockPulse(seg, t);
     if (seg.type === "focus") drawDarkFocus(seg, t);
     if (seg.type === "feedback") drawFeedbackEcho(seg, t);
     if (seg.type === "rgb") drawRgbSplit(seg, t);
