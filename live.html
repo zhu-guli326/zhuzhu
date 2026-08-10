@@ -309,7 +309,7 @@ const liveFxCtx = liveFx.getContext("2d");
 const LIVE_EFFECTS = [
   { id: "holo", zh: "立体镭射", en: "Holo Prism" },
   { id: "funhouse", zh: "哈哈镜", en: "Funhouse" },
-  { id: "triprism", zh: "三棱镜", en: "Tri-Prism" },
+  { id: "triprism", zh: "四向棱镜", en: "Four-Way Prism" },
   { id: "negative", zh: "负片", en: "Negative" },
   { id: "dot", zh: "正片点阵", en: "Dot Matrix" },
   { id: "antidot", zh: "反相点阵", en: "Anti-Dot Matrix" },
@@ -682,7 +682,7 @@ function applyEffect(q) {
       break;
     }
     case "triprism": {
-      drawTriPrism(w, h);
+      drawFourWayPrism(w, h);
       break;
     }
     case "negative": {
@@ -1226,16 +1226,14 @@ function drawFunhouseMirror(w, h) {
   ctx.restore();
 }
 
-function drawTriPrism(w, h) {
+function drawFourWayPrism(w, h) {
   const t = performance.now() / 1000;
-  const cx = w / 2;
-  const cy = h / 2;
   const source = copyLiveFrame(w, h);
   const panes = [
-    { points: [[0, 0], [w, 0], [cx, cy]], hue: 0, dx: -22, dy: -10, rotate: -0.035 },
-    { points: [[w, 0], [w, h], [cx, cy]], hue: 122, dx: 20, dy: 2, rotate: 0.045 },
-    { points: [[w, h], [0, h], [cx, cy]], hue: 238, dx: 4, dy: 18, rotate: -0.018 },
-    { points: [[0, h], [0, 0], [cx, cy]], hue: 305, dx: -12, dy: 7, rotate: 0.028 },
+    { x: w * 0.18, y: h * 0.02, width: w * 0.64, height: h * 0.28, hue: 192, dx: 0, dy: -h * 0.13 },
+    { x: w * 0.18, y: h * 0.70, width: w * 0.64, height: h * 0.28, hue: 330, dx: 0, dy: h * 0.13 },
+    { x: w * 0.02, y: h * 0.20, width: w * 0.28, height: h * 0.60, hue: 48, dx: -w * 0.13, dy: 0 },
+    { x: w * 0.70, y: h * 0.20, width: w * 0.28, height: h * 0.60, hue: 268, dx: w * 0.13, dy: 0 },
   ];
 
   ctx.fillStyle = "#05040d";
@@ -1243,18 +1241,17 @@ function drawTriPrism(w, h) {
   for (const pane of panes) {
     ctx.save();
     ctx.beginPath();
-    ctx.moveTo(pane.points[0][0], pane.points[0][1]);
-    ctx.lineTo(pane.points[1][0], pane.points[1][1]);
-    ctx.lineTo(pane.points[2][0], pane.points[2][1]);
-    ctx.closePath();
+    ctx.rect(pane.x, pane.y, pane.width, pane.height);
     ctx.clip();
-    ctx.translate(cx, cy);
-    ctx.rotate(pane.rotate + Math.sin(t * 1.2 + pane.hue) * 0.018);
-    ctx.scale(1.08, 1.08);
-    ctx.translate(-cx + pane.dx + Math.sin(t * 2 + pane.hue) * 7, -cy + pane.dy);
     ctx.filter = `saturate(2.2) contrast(1.32) hue-rotate(${pane.hue + t * 18}deg)`;
     ctx.globalAlpha = 0.9;
-    ctx.drawImage(source, 0, 0, w, h);
+    ctx.drawImage(
+      source,
+      pane.dx + Math.sin(t * 2 + pane.hue) * 7,
+      pane.dy + Math.cos(t * 1.7 + pane.hue) * 5,
+      w,
+      h
+    );
     ctx.restore();
   }
 
@@ -1262,26 +1259,20 @@ function drawTriPrism(w, h) {
   ctx.globalCompositeOperation = "screen";
   ctx.lineJoin = "round";
   ctx.lineWidth = Math.max(2, Math.min(w, h) * 0.006);
-  for (let i = 0; i < panes.length; i++) {
-    const next = panes[(i + 1) % panes.length];
-    const g = ctx.createLinearGradient(cx, cy, next.points[0][0], next.points[0][1]);
-    g.addColorStop(0, "rgba(255,255,255,0.92)");
-    g.addColorStop(0.48, `hsla(${i * 78 + t * 40}, 100%, 70%, 0.58)`);
-    g.addColorStop(1, "rgba(255,255,255,0.18)");
+  for (const pane of panes) {
+    const g = ctx.createLinearGradient(pane.x, pane.y, pane.x + pane.width, pane.y + pane.height);
+    g.addColorStop(0, "rgba(255,255,255,0.9)");
+    g.addColorStop(0.5, `hsla(${pane.hue + t * 40}, 100%, 72%, 0.7)`);
+    g.addColorStop(1, "rgba(255,255,255,0.16)");
     ctx.strokeStyle = g;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(next.points[0][0], next.points[0][1]);
-    ctx.stroke();
+    ctx.strokeRect(pane.x, pane.y, pane.width, pane.height);
   }
-  ctx.globalAlpha = 0.72;
-  ctx.strokeStyle = "rgba(255,255,255,0.72)";
-  ctx.beginPath();
-  ctx.moveTo(cx, cy - h * 0.24);
-  ctx.lineTo(cx + w * 0.25, cy + h * 0.18);
-  ctx.lineTo(cx - w * 0.25, cy + h * 0.18);
-  ctx.closePath();
-  ctx.stroke();
+  ctx.globalAlpha = 0.9;
+  ctx.filter = "saturate(1.25) contrast(1.18)";
+  ctx.drawImage(source, w * 0.28, h * 0.31, w * 0.44, h * 0.38);
+  ctx.filter = "none";
+  ctx.strokeStyle = "rgba(255,255,255,0.86)";
+  ctx.strokeRect(w * 0.28, h * 0.31, w * 0.44, h * 0.38);
   ctx.restore();
 }
 
