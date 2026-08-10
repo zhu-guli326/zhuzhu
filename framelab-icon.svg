@@ -13,7 +13,7 @@
       <stop offset=".62" stop-color="#eaf6aa" />
       <stop offset=".84" stop-color="#a9e9e2" />
       <stop offset="1" stop-color="#9bd5e7" />
-    </linearGradient>
+    </radialGradient>
     <linearGradient id="glow" x1="130" y1="130" x2="390" y2="410" gradientUnits="userSpaceOnUse">
       <stop stop-color="#fff" stop-opacity=".95" />
       <stop offset="1" stop-color="#fff" stop-opacity="0" />
