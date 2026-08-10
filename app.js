@@ -1,3 +1,5 @@
+import { computeGestureQuad } from "./gesture-frame.mjs";
+
 const origInput = document.getElementById("orig-file");
 const styInput = document.getElementById("sty-file");
 const audioInput = document.getElementById("audio-file");
@@ -58,10 +60,6 @@ const MEDIAPIPE_LOAD_TIMEOUT_MS = 12000;
 const DEFAULT_AUDIO_URL = "./bgm.mp3";
 const DEMO_ORIGINAL_URL = "./demo-original.mp4";
 const DEMO_INSIDE_URL = "./demo-inside.mp4";
-const WRIST = 0;
-const THUMB_TIP = 4;
-const INDEX_TIP = 8;
-const MIDDLE_MCP = 9;
 const MAX_LOST_FRAMES = 25;
 const JUMP_CONFIRM_FRAMES = 2;
 const ROUNDED_EXPORT_BG = "#f6f8f1";
@@ -963,10 +961,6 @@ async function initLandmarker() {
   return landmarkerLoading;
 }
 
-function toPixel(lm) {
-  return { x: lm.x * canvas.width, y: lm.y * canvas.height };
-}
-
 function dist(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
@@ -986,39 +980,12 @@ function defaultQuad() {
   ];
 }
 
-function polygonArea(pts) {
-  let a = 0;
-  for (let i = 0; i < pts.length; i++) {
-    const p = pts[i];
-    const q = pts[(i + 1) % pts.length];
-    a += p.x * q.y - q.x * p.y;
-  }
-  return Math.abs(a / 2);
-}
-
 function computeQuad(hands) {
-  if (hands.length !== 2) return null;
-  const info = hands.map((lm) => ({
-    index: toPixel(lm[INDEX_TIP]),
-    thumb: toPixel(lm[THUMB_TIP]),
-    wristX: toPixel(lm[WRIST]).x,
-    scale: dist(toPixel(lm[WRIST]), toPixel(lm[MIDDLE_MCP])) + 1,
-  }));
-  const needed = frameActive ? 0.2 : 0.75;
-  for (const hd of info) {
-    if (dist(hd.thumb, hd.index) < hd.scale * needed) return null;
-  }
-  info.sort((a, b) => a.wristX - b.wristX);
-  const [A, B] = info;
-  const pts = [A.index, B.index, B.thumb, A.thumb];
-  const cx = pts.reduce((s, p) => s + p.x, 0) / 4;
-  const cy = pts.reduce((s, p) => s + p.y, 0) / 4;
-  const hull = [...pts].sort(
-    (a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx)
-  );
-  const minArea = frameActive ? 0.0005 : 0.005;
-  if (polygonArea(hull) < canvas.width * canvas.height * minArea) return null;
-  return pts;
+  return computeGestureQuad(hands, {
+    active: frameActive,
+    width: canvas.width,
+    height: canvas.height,
+  });
 }
 
 function updateTracker(hands) {
