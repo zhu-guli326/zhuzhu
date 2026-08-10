@@ -710,6 +710,43 @@
       gap: 8px;
       flex: none;
     }
+    .social-link {
+      width: 42px;
+      height: 42px;
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid rgba(7, 16, 12, .1);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .72);
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 950;
+      text-decoration: none;
+      transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+    }
+    .social-link svg {
+      width: 20px;
+      height: 20px;
+      display: block;
+      fill: currentColor;
+    }
+    .social-link.xiaohongshu {
+      background: rgba(255, 255, 255, .72);
+      color: var(--ink);
+    }
+    .social-link.xiaohongshu svg {
+      width: 30px;
+      height: 22px;
+    }
+    .social-link:hover {
+      transform: translateY(-1px);
+      background: #fff;
+      box-shadow: 0 10px 24px rgba(14, 31, 23, .08);
+    }
+    .social-link.xiaohongshu:hover {
+      background: #fff;
+      box-shadow: 0 10px 24px rgba(14, 31, 23, .08);
+    }
     .lang-switch {
       display: inline-flex;
       align-items: center;
@@ -1088,10 +1125,14 @@
     }
     @media (max-width: 520px) {
       .topbar {
-        flex-wrap: nowrap;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        row-gap: 12px;
       }
       .top-actions {
-        margin-left: auto;
+        width: 100%;
+        justify-content: flex-start;
+        gap: 8px;
       }
       .tagline {
         margin-top: 4px;
@@ -1111,6 +1152,21 @@
             <span>FrameLab</span>
           </div>
           <div class="top-actions">
+            <a class="social-link" href="https://x.com/JGuli49724" target="_blank" rel="noopener noreferrer" aria-label="打开 JGuli49724 的 X / Twitter" data-i18n-aria="twitterAria" data-contact-target="x" title="X">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M14.6 10.2 22 2h-3.1l-5.7 6.3L8.6 2H2l7.8 10.5L2 22h3.1l6.1-7.1 5.2 7.1H23l-8.4-11.8Zm-2.2 2.5-1.3-1.8L5.8 4.4h1.6l4.3 5.7 1.3 1.8 5.8 7.7h-1.6l-4.8-6.9Z" />
+              </svg>
+            </a>
+            <a class="social-link xiaohongshu" href="https://www.xiaohongshu.com/user/profile/57b3456c82ec3947f79496e9" target="_blank" rel="noopener noreferrer" aria-label="打开 JGuli49724 的小红书主页" data-i18n-aria="xiaohongshuAria" data-contact-target="xiaohongshu" title="小红书">
+              <svg viewBox="0 0 32 24" aria-hidden="true">
+                <text x="16" y="15.6" text-anchor="middle" font-size="9" font-weight="900" font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif" fill="currentColor">小红书</text>
+              </svg>
+            </a>
+            <a class="social-link" href="mailto:juguli326@gmail.com" aria-label="发送邮件到 juguli326@gmail.com" data-i18n-aria="emailAria" data-contact-target="email" title="Email">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4.8 6.5h14.4c.7 0 1.3.6 1.3 1.3v8.4c0 .7-.6 1.3-1.3 1.3H4.8c-.7 0-1.3-.6-1.3-1.3V7.8c0-.7.6-1.3 1.3-1.3Zm.2 1.8 7 5 7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </a>
             <div class="lang-switch" aria-label="Language">
               <button type="button" data-lang="zh" aria-pressed="true" aria-label="切换到中文">中</button>
               <button type="button" data-lang="en" aria-pressed="false" aria-label="Switch to English">EN</button>

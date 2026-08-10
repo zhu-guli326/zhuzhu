@@ -113,6 +113,9 @@ const I18N = {
     ogDescription: "上传原始视频和风格视频，自动识别双手取景框，在浏览器本地预览并导出。",
     tagline: "上传两段视频，MediaPipe 自动识别手势框",
     appLabel: "手势取景合成工具",
+    twitterAria: "打开 JGuli49724 的 X / Twitter",
+    emailAria: "发送邮件到 juguli326@gmail.com",
+    xiaohongshuAria: "打开 JGuli49724 的小红书主页",
     liveMode: "实时摄像头特效",
     liveModeAria: "打开实时摄像头特效",
     uploadMode: "上传视频",
@@ -229,6 +232,9 @@ const I18N = {
     ogDescription: "Upload an original video and a style video, auto-detect the hand frame, preview locally, and export in the browser.",
     tagline: "Upload two videos. MediaPipe detects the hand frame automatically.",
     appLabel: "Hand-frame video compositing tool",
+    twitterAria: "Open JGuli49724 on X / Twitter",
+    emailAria: "Email juguli326@gmail.com",
+    xiaohongshuAria: "Open JGuli49724 on Xiaohongshu",
     liveMode: "Live Camera Effects",
     liveModeAria: "Open live camera effects",
     uploadMode: "Upload Video",
@@ -553,6 +559,15 @@ function setLanguage(lang) {
 
 languageButtons.forEach((button) => {
   button.addEventListener("click", () => setLanguage(button.dataset.lang));
+});
+
+document.querySelectorAll(".social-link").forEach((link) => {
+  link.addEventListener("click", () => {
+    const href = link.getAttribute("href") || "";
+    trackEvent("Contact Clicked", {
+      target: link.dataset.contactTarget || (href.startsWith("mailto:") ? "email" : "x"),
+    });
+  });
 });
 
 function openFilePicker(card) {
