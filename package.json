@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "mkdir -p dist && cp index.html app.js bgm.mp3 dist/",
+    "build": "mkdir -p dist && cp index.html live.html app.js bgm.mp3 dist/",
     "check": "node --check app.js"
   }
 }

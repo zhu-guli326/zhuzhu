@@ -1,0 +1,1862 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a0a0c" />
+  <meta name="description" content="FrameLab 实时摄像头手势框特效：举起双手框住画面，在浏览器里实时切换视觉滤镜。" />
+  <script>
+    window.va = window.va || function () {
+      (window.vaq = window.vaq || []).push(arguments);
+    };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
+  <title>FrameLab 实时摄像头特效</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      background: #0a0a0c;
+      color: #eee;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow: hidden;
+    }
+    #stage {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    canvas {
+      max-width: 100%;
+      max-height: 100%;
+      border-radius: 12px;
+    }
+    video { display: none; }
+    #back-link {
+      position: fixed;
+      top: max(18px, env(safe-area-inset-top));
+      left: max(18px, env(safe-area-inset-left));
+      z-index: 7;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 42px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 999px;
+      background: rgba(20,20,24,0.72);
+      color: rgba(255,255,255,0.9);
+      padding: 9px 14px 9px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      backdrop-filter: blur(12px);
+    }
+    #back-link:hover { background: rgba(255,255,255,0.12); }
+    #back-link svg {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    #status {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+      justify-content: center;
+      background: #0a0a0c;
+      z-index: 10;
+      transition: opacity 0.4s;
+      text-align: center;
+      padding: 24px;
+    }
+    #status.hidden { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 28px; height: 28px;
+      border: 3px solid #333;
+      border-top-color: #eee;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #hint {
+      position: fixed;
+      left: 0; right: 0;
+      bottom: 84px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      pointer-events: none;
+      transition: opacity 0.4s;
+      z-index: 5;
+      animation: hint-float 3.2s ease-in-out infinite;
+    }
+    #hint.hidden { opacity: 0; }
+    #hint-text {
+      font-size: 15px;
+      color: rgba(255,255,255,0.9);
+      text-shadow: 0 1px 6px rgba(0,0,0,0.8);
+      animation: hint-pulse 2.4s ease-in-out infinite;
+    }
+    @keyframes hint-pulse {
+      0%, 100% { opacity: 0.65; }
+      50% { opacity: 1; }
+    }
+    @keyframes hint-float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+
+    #toolbar {
+      position: fixed;
+      left: 50%;
+      bottom: 20px;
+      transform: translateX(-50%);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: calc(100vw - 24px);
+      gap: 8px;
+      padding: 8px;
+      background: rgba(20,20,24,0.72);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 14px;
+      z-index: 6;
+    }
+    #toolbar button {
+      appearance: none;
+      border: none;
+      background: transparent;
+      color: rgba(255,255,255,0.75);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 9px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      font-family: inherit;
+    }
+    #toolbar button:hover { background: rgba(255,255,255,0.08); }
+    #toolbar button:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 2px;
+    }
+    #toolbar button:active { transform: scale(0.97); }
+    #toolbar button.active {
+      background: #fff;
+      color: #111;
+    }
+    #toolbar button .key {
+      opacity: 0.5;
+      font-weight: 400;
+      margin-right: 5px;
+      font-size: 11px;
+    }
+
+    @media (max-width: 560px) {
+      #toolbar {
+        bottom: 12px;
+        max-height: 104px;
+        overflow-y: auto;
+        gap: 5px;
+        padding: 6px;
+        border-radius: 12px;
+      }
+      #toolbar button {
+        font-size: 12px;
+        padding: 7px 10px;
+      }
+      #hint { bottom: 126px; }
+      #hint-text {
+        max-width: calc(100vw - 40px);
+        line-height: 1.4;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a id="back-link" href="./index.html" aria-label="返回 FrameLab 首页">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m15 18-6-6 6-6" />
+    </svg>
+    <span>FrameLab</span>
+  </a>
+
+  <div id="status" role="status" aria-live="polite">
+    <div class="spinner"></div>
+    <div id="status-text">正在加载手部识别器…</div>
+  </div>
+
+  <div id="stage">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <div id="hint">
+    <div id="hint-text">举起双手，用拇指和食指把画面框起来。</div>
+  </div>
+
+  <div id="toolbar" aria-label="视觉效果"></div>
+
+  <script type="module">
+const TASKS_VISION_URL =
+  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+const WASM_URL = `${TASKS_VISION_URL}/wasm`;
+const MODEL_URL =
+  "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+
+// Demo mode (?demo): synthetic video + fake landmarks, for testing without a camera.
+const DEMO = new URLSearchParams(location.search).has("demo");
+
+const WRIST = 0;
+const THUMB_TIP = 4;
+const INDEX_TIP = 8;
+const INDEX_MCP = 5;
+const MIDDLE_MCP = 9;
+
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const statusEl = document.getElementById("status");
+const statusText = document.getElementById("status-text");
+const hintEl = document.getElementById("hint");
+const toolbar = document.getElementById("toolbar");
+
+function trackEvent(name, data = {}) {
+  try {
+    window.va?.("event", {
+      name,
+      data: {
+        mode: "live_camera",
+        demo: DEMO,
+        ...data,
+      },
+    });
+  } catch (err) {
+    console.warn("Analytics event skipped", err);
+  }
+}
+
+// Offscreen canvas for the pixelate effect.
+const small = document.createElement("canvas");
+const sctx = small.getContext("2d");
+
+const EFFECTS = [
+  { id: "pixelate", label: "像素化" },
+  { id: "blur", label: "柔焦" },
+  { id: "invert", label: "反相" },
+  { id: "noir", label: "黑白" },
+  { id: "glitch", label: "故障" },
+  { id: "toon", label: "卡通" },
+  { id: "vangogh", label: "梵高" },
+  { id: "thermal", label: "热成像" },
+  { id: "halftone", label: "网点" },
+  { id: "neon", label: "霓虹" },
+  { id: "prism", label: "棱镜" },
+  { id: "aurora", label: "极光" },
+  { id: "film", label: "胶片" },
+  { id: "particles", label: "粒子" },
+  { id: "td", label: "流场" },
+  { id: "random", label: "自动随机" },
+];
+const RANDOM_EFFECT_IDS = EFFECTS.filter((e) => e.id !== "random").map((e) => e.id);
+const RANDOM_INTERVAL_MS = 4200;
+
+// Offscreen canvas for the toon effect (processed at reduced resolution).
+const toon = document.createElement("canvas");
+const tctx = toon.getContext("2d", { willReadFrequently: true });
+const POSTER_LEVELS = 6;
+const posterLUT = new Uint8Array(256);
+for (let i = 0; i < 256; i++) {
+  posterLUT[i] = Math.round(
+    (Math.round((i / 255) * (POSTER_LEVELS - 1)) / (POSTER_LEVELS - 1)) * 255
+  );
+}
+
+// Small processing buffers for styles that need direct pixel access.
+const thermal = document.createElement("canvas");
+const thermalCtx = thermal.getContext("2d", { willReadFrequently: true });
+const halftone = document.createElement("canvas");
+const halftoneCtx = halftone.getContext("2d", { willReadFrequently: true });
+
+let effect = "vangogh";
+let autoRandom = false;
+let lastRandomSwitch = 0;
+
+// Smoothed quad corners + presence fade (0..1).
+let corners = null;
+let presence = 0;
+// True while a frame is being shown — relaxes the gesture gate (hysteresis).
+let frameActive = false;
+// Frames since the quad was last seen; short dropouts hold the last quad.
+let lostFrames = 0;
+// Crossing/overlapping hands often occlude each other and break detection
+// for a while — hold the last quad through a moderate dropout window.
+const MAX_LOST_FRAMES = 25;
+// Frames in a row a far-jumped quad must persist before we accept it as a
+// real reposition rather than a mis-detection during hand overlap.
+const JUMP_CONFIRM_FRAMES = 2;
+let jumpFrames = 0;
+
+let landmarker = null;
+let lastVideoTime = -1;
+let lastResults = null;
+
+function buildToolbar() {
+  EFFECTS.forEach((e, i) => {
+    const btn = document.createElement("button");
+    const key = shortcutFor(i);
+    btn.innerHTML = `${key ? `<span class="key">${key}</span>` : ""}${e.label}`;
+    btn.dataset.id = e.id;
+    btn.title = `${e.label}${key ? ` (${key})` : ""}`;
+    btn.setAttribute("aria-pressed", e.id === effect ? "true" : "false");
+    if (e.id === effect) btn.classList.add("active");
+    btn.addEventListener("click", () => setEffect(e.id));
+    toolbar.appendChild(btn);
+  });
+  window.addEventListener("keydown", (ev) => {
+    const idx = EFFECTS.findIndex((_, i) => shortcutFor(i) === ev.key);
+    if (idx >= 0 && idx < EFFECTS.length) setEffect(EFFECTS[idx].id);
+  });
+}
+
+function shortcutFor(index) {
+  if (index < 9) return String(index + 1);
+  if (index === 9) return "0";
+  return "";
+}
+
+function setEffect(id) {
+  if (!EFFECTS.some((e) => e.id === id)) return;
+  if (id === "random") {
+    autoRandom = true;
+    pickRandomEffect();
+    lastRandomSwitch = performance.now();
+  } else {
+    autoRandom = false;
+    effect = id;
+  }
+  syncToolbar();
+  trackEvent("Live Effect Changed", {
+    effect,
+    auto_random: autoRandom,
+  });
+}
+
+function pickRandomEffect() {
+  const choices = RANDOM_EFFECT_IDS.filter((id) => id !== effect);
+  effect = choices[Math.floor(Math.random() * choices.length)] || effect;
+}
+
+function syncToolbar() {
+  toolbar.querySelectorAll("button").forEach((b) => {
+    const active =
+      b.dataset.id === effect || (b.dataset.id === "random" && autoRandom);
+    b.classList.toggle("active", active);
+    b.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+}
+
+async function init() {
+  buildToolbar();
+
+  let stream;
+  if (DEMO) {
+    stream = makeDemoStream();
+  } else {
+    statusText.textContent = "正在加载手部识别器…";
+    const { HandLandmarker, FilesetResolver } = await import(TASKS_VISION_URL);
+    const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
+    landmarker = await HandLandmarker.createFromOptions(fileset, {
+      baseOptions: { modelAssetPath: MODEL_URL, delegate: "GPU" },
+      runningMode: "VIDEO",
+      numHands: 2,
+      minHandDetectionConfidence: 0.3,
+      minHandPresenceConfidence: 0.3,
+      minTrackingConfidence: 0.3,
+    });
+
+    statusText.textContent = "正在请求摄像头权限…";
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
+      audio: false,
+    });
+  }
+  video.srcObject = stream;
+  await new Promise((res) => (video.onloadedmetadata = res));
+  await video.play();
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  statusEl.classList.add("hidden");
+  trackEvent("Live Camera Started", {
+    width: canvas.width,
+    height: canvas.height,
+  });
+  requestAnimationFrame(loop);
+}
+
+// Draw the (mirrored) camera feed onto any 2d context, filling w x h.
+function drawMirrored(c, w, h, dx = 0) {
+  c.save();
+  c.translate(w, 0);
+  c.scale(-1, 1);
+  c.drawImage(video, -dx, 0, w, h);
+  c.restore();
+}
+
+function toPixel(lm) {
+  // Mirror x so coordinates match the mirrored canvas.
+  return { x: (1 - lm.x) * canvas.width, y: lm.y * canvas.height };
+}
+
+function dist(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function lerpPt(a, b, t) {
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+}
+
+// Given landmark sets for exactly two hands, return the 4 frame corners in
+// ANATOMICAL order: [left.index, right.thumb, right.index, left.thumb]
+// ("left"/"right" = on-screen wrist position). Each corner belongs to a
+// specific finger, so the edge cycle is honest geometry: two upright "L"s
+// trace a rectangle, and flipping one hand's fingers makes the edges cross
+// into a bowtie of two triangles — and uncrossing recovers by itself, since
+// nothing about the ordering is stateful.
+function computeQuad(hands) {
+  const info = hands.map((lm) => ({
+    index: toPixel(lm[INDEX_TIP]),
+    thumb: toPixel(lm[THUMB_TIP]),
+    wristX: toPixel(lm[WRIST]).x,
+    // Hand size from wrist -> middle knuckle: stable regardless of which way
+    // the fingers point (unlike finger-based measures, which foreshorten).
+    scale: dist(toPixel(lm[WRIST]), toPixel(lm[MIDDLE_MCP])) + 1,
+  }));
+  // Require thumb and index spread apart (an open "L"). Hysteresis: easy to
+  // keep once active, so rotating/foreshortening fingers doesn't drop it.
+  const needed = frameActive ? 0.2 : 0.75;
+  for (const hd of info) {
+    if (dist(hd.thumb, hd.index) < hd.scale * needed) return null;
+  }
+  info.sort((a, b) => a.wristX - b.wristX);
+  const [A, B] = info;
+  // Standard gesture holds both index fingers up and thumbs down, so this
+  // cycle traces a rectangle; flipping one hand crosses it into a bowtie.
+  const pts = [A.index, B.index, B.thumb, A.thumb];
+  // Degenerate-frame gate on the spanned extent (angle-sorted area) — the
+  // traced area is near zero for a legitimate crossed (bowtie) frame.
+  const cx = pts.reduce((s, p) => s + p.x, 0) / 4;
+  const cy = pts.reduce((s, p) => s + p.y, 0) / 4;
+  const hull = [...pts].sort(
+    (a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx)
+  );
+  const minArea = frameActive ? 0.0005 : 0.005;
+  if (polygonArea(hull) < canvas.width * canvas.height * minArea) return null;
+  return pts;
+}
+
+function polygonArea(pts) {
+  let a = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    const q = pts[(i + 1) % pts.length];
+    a += p.x * q.y - q.x * p.y;
+  }
+  return Math.abs(a / 2);
+}
+
+function quadPath(c, q) {
+  c.beginPath();
+  c.moveTo(q[0].x, q[0].y);
+  for (let i = 1; i < 4; i++) c.lineTo(q[i].x, q[i].y);
+  c.closePath();
+}
+
+function applyEffect(q) {
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.save();
+  quadPath(ctx, q);
+  ctx.clip();
+  ctx.globalAlpha = presence;
+
+  switch (effect) {
+    case "pixelate": {
+      const factor = 24;
+      const sw = Math.max(2, Math.round(w / factor));
+      const sh = Math.max(2, Math.round(h / factor));
+      if (small.width !== sw || small.height !== sh) {
+        small.width = sw;
+        small.height = sh;
+      }
+      drawMirrored(sctx, sw, sh);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(small, 0, 0, sw, sh, 0, 0, w, h);
+      ctx.imageSmoothingEnabled = true;
+      break;
+    }
+    case "blur": {
+      ctx.filter = "blur(14px) saturate(1.1)";
+      drawMirrored(ctx, w, h);
+      ctx.filter = "none";
+      break;
+    }
+    case "invert": {
+      ctx.filter = "invert(1)";
+      drawMirrored(ctx, w, h);
+      ctx.filter = "none";
+      break;
+    }
+    case "noir": {
+      ctx.filter = "grayscale(1) contrast(1.5) brightness(0.95)";
+      drawMirrored(ctx, w, h);
+      ctx.filter = "none";
+      break;
+    }
+    case "glitch": {
+      const t = performance.now() / 1000;
+      // Chromatic-aberration ghosts.
+      ctx.filter = "saturate(1.6) contrast(1.1)";
+      drawMirrored(ctx, w, h);
+      ctx.globalAlpha = presence * 0.35;
+      ctx.filter = "hue-rotate(120deg)";
+      drawMirrored(ctx, w, h, 8 + Math.sin(t * 9) * 5);
+      ctx.filter = "hue-rotate(-120deg)";
+      drawMirrored(ctx, w, h, -8 - Math.sin(t * 9) * 5);
+      ctx.filter = "none";
+      // Horizontal slice displacement.
+      ctx.globalAlpha = presence;
+      const slices = 7;
+      for (let i = 0; i < slices; i++) {
+        const seed = Math.sin(i * 127.1 + Math.floor(t * 12) * 311.7);
+        const sy = ((seed * 0.5 + 0.5) * h) | 0;
+        const sliceH = 6 + ((Math.abs(seed) * 26) | 0);
+        const dx = (seed * 34) | 0;
+        // Source video is mirrored, so sample from the mirrored x range.
+        ctx.save();
+        ctx.translate(w, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, (sy / h) * video.videoHeight,
+          video.videoWidth, (sliceH / h) * video.videoHeight,
+          -w + dx, sy, w, sliceH);
+        ctx.restore();
+      }
+      // Scanlines.
+      ctx.fillStyle = "rgba(0,0,0,0.16)";
+      for (let y = 0; y < h; y += 6) ctx.fillRect(0, y, w, 2);
+      break;
+    }
+    case "toon": {
+      drawToon(w, h);
+      break;
+    }
+    case "vangogh": {
+      drawVanGogh(q, w, h);
+      break;
+    }
+    case "thermal": {
+      drawThermal(w, h);
+      break;
+    }
+    case "halftone": {
+      drawHalftone(w, h);
+      break;
+    }
+    case "neon": {
+      drawNeon(w, h);
+      break;
+    }
+    case "prism": {
+      drawPrism(w, h);
+      break;
+    }
+    case "aurora": {
+      drawAurora(w, h);
+      break;
+    }
+    case "film": {
+      drawFilm(w, h);
+      break;
+    }
+    case "particles": {
+      drawParticles(w, h, q);
+      break;
+    }
+    case "td": {
+      drawTouchDesigner(w, h, q);
+      break;
+    }
+  }
+
+  ctx.restore();
+}
+
+function quadBBox(q) {
+  const xs = q.map((p) => p.x);
+  const ys = q.map((p) => p.y);
+  return {
+    x0: Math.min(...xs),
+    y0: Math.min(...ys),
+    x1: Math.max(...xs),
+    y1: Math.max(...ys),
+  };
+}
+
+// ---- Van Gogh: live painterly rendering, no AI ----
+// Hertzmann-style stroke-based rendering, adapted for real time:
+//   1. Build a SMOOTHED orientation field from the image gradients (this is
+//      what makes strokes flow coherently instead of jittering per-pixel).
+//   2. Paint curved brush strokes that follow the field — a large-brush pass
+//      for mass, then a fine pass that sharpens edges — with per-stroke
+//      color jitter for the impasto feel. Flat areas fall back to a slowly
+//      drifting swirl field (the Starry Night signature).
+// All computed per frame, so the painting moves with the subject.
+const vg = document.createElement("canvas");
+const vgCtx = vg.getContext("2d", { willReadFrequently: true });
+const VG_SCALE = 4;
+let vgAngle = null;
+let vgMag = null;
+let vgData = null;
+let vgW = 0;
+let vgH = 0;
+// Scratch buffers reused across frames — allocating these per frame caused
+// ~1MB/frame of garbage and visible GC stutter.
+let vgLum = null;
+let vgGx = null;
+let vgGy = null;
+let vgTx = null;
+let vgTy = null;
+
+function vgHash(x, y) {
+  // Deterministic per-position jitter so strokes don't shimmer frame to frame.
+  const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+// Sample the image + build the smoothed flow field, computed only over the
+// framed region (padded) — the rest of the image never grows strokes.
+function vgBuildField(w, h, bb) {
+  vgW = Math.ceil(w / VG_SCALE);
+  vgH = Math.ceil(h / VG_SCALE);
+  if (vg.width !== vgW || vg.height !== vgH) {
+    vg.width = vgW;
+    vg.height = vgH;
+  }
+  vgCtx.filter = "saturate(1.8) contrast(1.1)";
+  drawMirrored(vgCtx, vgW, vgH);
+  vgCtx.filter = "none";
+  vgData = vgCtx.getImageData(0, 0, vgW, vgH).data;
+
+  const n = vgW * vgH;
+  if (!vgLum || vgLum.length !== n) {
+    vgLum = new Float32Array(n);
+    vgGx = new Float32Array(n);
+    vgGy = new Float32Array(n);
+    vgTx = new Float32Array(n);
+    vgTy = new Float32Array(n);
+    vgAngle = new Float32Array(n);
+    vgMag = new Float32Array(n);
+  }
+  const lum = vgLum, gx = vgGx, gy = vgGy, tmpx = vgTx, tmpy = vgTy;
+
+  // Cell range covering the padded bbox (clamped one cell inside the border).
+  const M = 4;
+  const cx0 = Math.max(1, Math.floor(bb.x0 / VG_SCALE) - M);
+  const cx1 = Math.min(vgW - 2, Math.ceil(bb.x1 / VG_SCALE) + M);
+  const cy0 = Math.max(1, Math.floor(bb.y0 / VG_SCALE) - M);
+  const cy1 = Math.min(vgH - 2, Math.ceil(bb.y1 / VG_SCALE) + M);
+
+  for (let y = cy0 - 1; y <= cy1 + 1; y++) {
+    for (let x = cx0 - 1; x <= cx1 + 1; x++) {
+      const i = y * vgW + x;
+      const p = i * 4;
+      lum[i] = 0.299 * vgData[p] + 0.587 * vgData[p + 1] + 0.114 * vgData[p + 2];
+    }
+  }
+
+  // Sobel gradients.
+  for (let y = cy0; y <= cy1; y++) {
+    for (let x = cx0; x <= cx1; x++) {
+      const i = y * vgW + x;
+      gx[i] =
+        -lum[i - vgW - 1] - 2 * lum[i - 1] - lum[i + vgW - 1] +
+        lum[i - vgW + 1] + 2 * lum[i + 1] + lum[i + vgW + 1];
+      gy[i] =
+        -lum[i - vgW - 1] - 2 * lum[i - vgW] - lum[i - vgW + 1] +
+        lum[i + vgW - 1] + 2 * lum[i + vgW] + lum[i + vgW + 1];
+    }
+  }
+
+  // Smooth the gradient field (separable box blur, radius 2) so stroke
+  // directions are coherent across neighbouring strokes.
+  const R = 2;
+  for (let y = cy0; y <= cy1; y++) {
+    const row = y * vgW;
+    for (let x = cx0; x <= cx1; x++) {
+      let sx = 0, sy = 0, c = 0;
+      for (let k = -R; k <= R; k++) {
+        const xx = x + k;
+        if (xx < cx0 || xx > cx1) continue;
+        sx += gx[row + xx];
+        sy += gy[row + xx];
+        c++;
+      }
+      tmpx[row + x] = sx / c;
+      tmpy[row + x] = sy / c;
+    }
+  }
+  for (let x = cx0; x <= cx1; x++) {
+    for (let y = cy0; y <= cy1; y++) {
+      let sx = 0, sy = 0, c = 0;
+      for (let k = -R; k <= R; k++) {
+        const yy = y + k;
+        if (yy < cy0 || yy > cy1) continue;
+        sx += tmpx[yy * vgW + x];
+        sy += tmpy[yy * vgW + x];
+        c++;
+      }
+      const i = y * vgW + x;
+      const fx = sx / c;
+      const fy = sy / c;
+      vgMag[i] = Math.hypot(fx, fy);
+      vgAngle[i] = Math.atan2(fy, fx) + Math.PI / 2;
+    }
+  }
+}
+
+// Field angle at full-res coords, with swirl fallback in flat areas.
+function vgFieldAngle(px, py, t) {
+  const sx = Math.min(vgW - 1, Math.max(0, Math.round(px / VG_SCALE)));
+  const sy = Math.min(vgH - 1, Math.max(0, Math.round(py / VG_SCALE)));
+  const i = sy * vgW + sx;
+  if (vgMag[i] > 14) return vgAngle[i];
+  return (
+    Math.sin(px * 0.011 + t * 0.35) * 1.7 +
+    Math.cos(py * 0.013 - t * 0.28) * 1.7
+  );
+}
+
+// Paint one curved stroke following the flow field.
+function vgStroke(px, py, segments, segLen, t) {
+  ctx.beginPath();
+  ctx.moveTo(px, py);
+  let a = vgFieldAngle(px, py, t);
+  let x = px;
+  let y = py;
+  for (let s = 0; s < segments; s++) {
+    const na = vgFieldAngle(x, y, t);
+    // Keep direction continuous — a field angle is orientation-only, so flip
+    // it when it points backwards relative to where the stroke is heading.
+    a = Math.cos(na - a) < 0 ? na + Math.PI : na;
+    x += Math.cos(a) * segLen;
+    y += Math.sin(a) * segLen;
+    ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+}
+
+function vgColor(px, py, jitter) {
+  const sx = Math.min(vgW - 1, Math.max(0, Math.round(px / VG_SCALE)));
+  const sy = Math.min(vgH - 1, Math.max(0, Math.round(py / VG_SCALE)));
+  const p = (sy * vgW + sx) * 4;
+  // Per-stroke value jitter sells distinct paint dabs.
+  const v = 1 + (jitter - 0.5) * 0.3;
+  const r = Math.min(255, vgData[p] * v);
+  const g = Math.min(255, vgData[p + 1] * v);
+  const b = Math.min(255, vgData[p + 2] * (1 + (jitter - 0.5) * 0.22));
+  return `rgb(${r | 0},${g | 0},${b | 0})`;
+}
+
+function vgMagAt(px, py) {
+  const sx = Math.min(vgW - 1, Math.max(0, Math.round(px / VG_SCALE)));
+  const sy = Math.min(vgH - 1, Math.max(0, Math.round(py / VG_SCALE)));
+  return vgMag[sy * vgW + sx];
+}
+
+function drawVanGogh(q, w, h) {
+  vgBuildField(w, h, quadBBox(q));
+
+  // Underpainting so gaps between strokes read as toned canvas.
+  ctx.filter = "blur(10px) saturate(1.7) brightness(0.92)";
+  drawMirrored(ctx, w, h);
+  ctx.filter = "none";
+
+  const b = quadBBox(q);
+  const x0 = Math.max(6, b.x0);
+  const y0 = Math.max(6, b.y0);
+  const x1 = Math.min(w - 6, b.x1);
+  const y1 = Math.min(h - 6, b.y1);
+  const t = performance.now() / 1000;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  // Pass 1 — large brush: lays down the mass of the painting.
+  const bigStep = 14;
+  for (let y = y0; y < y1; y += bigStep) {
+    for (let x = x0; x < x1; x += bigStep) {
+      const j = vgHash(x, y);
+      const px = x + (j - 0.5) * bigStep;
+      const py = y + (vgHash(y, x) - 0.5) * bigStep;
+      ctx.strokeStyle = vgColor(px, py, j);
+      ctx.lineWidth = 8 + j * 4;
+      ctx.globalAlpha = presence * 0.85;
+      vgStroke(px, py, 4, 6.5, t);
+    }
+  }
+
+  // Pass 2 — fine brush: sharpens edges and adds dab texture. Denser on
+  // edges, sparser in flat areas so the big swirls still show through.
+  const fineStep = 6;
+  for (let y = y0; y < y1; y += fineStep) {
+    for (let x = x0; x < x1; x += fineStep) {
+      const j = vgHash(x + 7, y + 3);
+      const px = x + (j - 0.5) * fineStep;
+      const py = y + (vgHash(y + 5, x + 1) - 0.5) * fineStep;
+      const onEdge = vgMagAt(px, py) > 20;
+      if (!onEdge && j > 0.35) continue;
+      ctx.strokeStyle = vgColor(px, py, vgHash(x, y + 11));
+      ctx.lineWidth = onEdge ? 3 + j * 1.5 : 4 + j * 2;
+      ctx.globalAlpha = presence * (onEdge ? 0.95 : 0.7);
+      vgStroke(px, py, onEdge ? 2 : 3, 5, t);
+    }
+  }
+  ctx.globalAlpha = presence;
+}
+
+// ---- Toon: cel-shaded cartoon version of the live feed ----
+// Smooth the feed, quantize colors into flat bands, then draw dark outline
+// strokes where Sobel edge magnitude is high.
+function drawToon(w, h) {
+  const tw = 320;
+  const th = Math.max(2, Math.round((tw * h) / w));
+  if (toon.width !== tw || toon.height !== th) {
+    toon.width = tw;
+    toon.height = th;
+  }
+  // Slight blur approximates bilateral smoothing; saturation sells the
+  // "animated" look.
+  tctx.filter = "saturate(1.6) blur(0.6px) brightness(1.05)";
+  drawMirrored(tctx, tw, th);
+  tctx.filter = "none";
+
+  const imgData = tctx.getImageData(0, 0, tw, th);
+  const d = imgData.data;
+
+  // Luminance (pre-posterize) for edge detection.
+  const lum = new Float32Array(tw * th);
+  for (let i = 0, p = 0; i < lum.length; i++, p += 4) {
+    lum[i] = 0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2];
+  }
+
+  // Posterize colors into flat cel bands.
+  for (let p = 0; p < d.length; p += 4) {
+    d[p] = posterLUT[d[p]];
+    d[p + 1] = posterLUT[d[p + 1]];
+    d[p + 2] = posterLUT[d[p + 2]];
+  }
+
+  // Sobel edges -> dark outlines.
+  for (let y = 1; y < th - 1; y++) {
+    for (let x = 1; x < tw - 1; x++) {
+      const i = y * tw + x;
+      const gx =
+        -lum[i - tw - 1] - 2 * lum[i - 1] - lum[i + tw - 1] +
+        lum[i - tw + 1] + 2 * lum[i + 1] + lum[i + tw + 1];
+      const gy =
+        -lum[i - tw - 1] - 2 * lum[i - tw] - lum[i - tw + 1] +
+        lum[i + tw - 1] + 2 * lum[i + tw] + lum[i + tw + 1];
+      const mag = Math.abs(gx) + Math.abs(gy);
+      if (mag > 90) {
+        const p = i * 4;
+        d[p] *= 0.18;
+        d[p + 1] *= 0.18;
+        d[p + 2] *= 0.18;
+      }
+    }
+  }
+
+  tctx.putImageData(imgData, 0, 0);
+  ctx.drawImage(toon, 0, 0, tw, th, 0, 0, w, h);
+}
+
+function drawThermal(w, h) {
+  const tw = 320;
+  const th = Math.max(2, Math.round((tw * h) / w));
+  if (thermal.width !== tw || thermal.height !== th) {
+    thermal.width = tw;
+    thermal.height = th;
+  }
+
+  thermalCtx.filter = "contrast(1.2) saturate(1.15)";
+  drawMirrored(thermalCtx, tw, th);
+  thermalCtx.filter = "none";
+
+  const image = thermalCtx.getImageData(0, 0, tw, th);
+  const d = image.data;
+  for (let p = 0; p < d.length; p += 4) {
+    const lum = (0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2]) / 255;
+    let r;
+    let g;
+    let b;
+    if (lum < 0.28) {
+      const t = lum / 0.28;
+      r = 8 + t * 34;
+      g = 12 + t * 10;
+      b = 42 + t * 104;
+    } else if (lum < 0.58) {
+      const t = (lum - 0.28) / 0.3;
+      r = 42 + t * 192;
+      g = 22 + t * 42;
+      b = 146 - t * 128;
+    } else {
+      const t = (lum - 0.58) / 0.42;
+      r = 234 + t * 21;
+      g = 64 + t * 184;
+      b = 18 + t * 202;
+    }
+    d[p] = r | 0;
+    d[p + 1] = g | 0;
+    d[p + 2] = b | 0;
+  }
+  thermalCtx.putImageData(image, 0, 0);
+  ctx.drawImage(thermal, 0, 0, tw, th, 0, 0, w, h);
+}
+
+function drawHalftone(w, h) {
+  const tw = 240;
+  const th = Math.max(2, Math.round((tw * h) / w));
+  if (halftone.width !== tw || halftone.height !== th) {
+    halftone.width = tw;
+    halftone.height = th;
+  }
+
+  drawMirrored(halftoneCtx, tw, th);
+  const d = halftoneCtx.getImageData(0, 0, tw, th).data;
+  const cell = 6;
+  ctx.fillStyle = "#f3efe5";
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = "#142235";
+
+  for (let y = 0; y < th; y += cell) {
+    for (let x = 0; x < tw; x += cell) {
+      const sx = Math.min(tw - 1, x + (cell >> 1));
+      const sy = Math.min(th - 1, y + (cell >> 1));
+      const p = (sy * tw + sx) * 4;
+      const lum = (0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2]) / 255;
+      const radius = (1 - lum) * cell * 0.48;
+      if (radius < 0.35) continue;
+      ctx.beginPath();
+      ctx.arc((x / tw) * w, (y / th) * h, (radius / tw) * w, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+function drawNeon(w, h) {
+  const t = performance.now() / 1000;
+  ctx.fillStyle = "#05070d";
+  ctx.fillRect(0, 0, w, h);
+  ctx.globalCompositeOperation = "screen";
+
+  // Soft bloom underneath the sharper channel-separated layers.
+  ctx.filter = "blur(22px) saturate(2.8) brightness(1.35)";
+  ctx.globalAlpha = 0.45;
+  drawMirrored(ctx, w, h, Math.sin(t * 1.7) * 4);
+
+  ctx.filter = "saturate(2.2) contrast(1.5) hue-rotate(125deg)";
+  ctx.globalAlpha = 0.9;
+  drawMirrored(ctx, w, h, -5 - Math.sin(t * 2.3) * 2);
+
+  ctx.filter = "saturate(2.4) contrast(1.5) hue-rotate(250deg)";
+  ctx.globalAlpha = 0.85;
+  drawMirrored(ctx, w, h, 5 + Math.sin(t * 2.3) * 2);
+
+  ctx.filter = "grayscale(1) contrast(2.2) brightness(0.9)";
+  ctx.globalAlpha = 0.28;
+  drawMirrored(ctx, w, h);
+
+  ctx.filter = "none";
+  ctx.globalAlpha = 0.22;
+  ctx.fillStyle = "#73f5ff";
+  for (let y = 0; y < h; y += 7) {
+    const drift = Math.sin(t * 3 + y * 0.03) * 3;
+    ctx.fillRect(drift, y, w, 1);
+  }
+  ctx.globalAlpha = 0.4;
+  ctx.strokeStyle = "rgba(255, 56, 214, 0.8)";
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 4; i++) {
+    const y = h * (0.18 + i * 0.2) + Math.sin(t * 2 + i) * 18;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y + Math.sin(t * 2.6 + i) * 22);
+    ctx.stroke();
+  }
+
+  // Random-looking, deterministic neon sparks.
+  for (let i = 0; i < 18; i++) {
+    const seed = neonHash(i, Math.floor(t * 1.2));
+    const life = (t * (0.22 + seed * 0.28) + seed) % 1;
+    const x = w * ((neonHash(i, 3) + Math.sin(t * 0.7 + i) * 0.08 + 1) % 1);
+    const y = h * ((neonHash(i, 9) + Math.cos(t * 0.6 + i * 1.7) * 0.08 + 1) % 1);
+    const glow = Math.sin(life * Math.PI);
+    ctx.beginPath();
+    ctx.fillStyle = `rgba(${seed > 0.5 ? 90 : 255}, ${seed > 0.5 ? 240 : 70}, 255, ${0.12 + glow * 0.48})`;
+    ctx.arc(x, y, 2 + glow * 8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Electric arcs that briefly crawl across the frame.
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  for (let i = 0; i < 5; i++) {
+    const seed = neonHash(i, Math.floor(t * 0.9));
+    const y = h * (0.12 + seed * 0.76);
+    const amp = 10 + seed * 26;
+    ctx.beginPath();
+    for (let x = -20; x <= w + 20; x += 28) {
+      const jitter = Math.sin(x * 0.045 + t * (4 + seed * 3) + i) * amp;
+      if (x === -20) ctx.moveTo(x, y + jitter);
+      else ctx.lineTo(x, y + jitter + Math.sin(x * 0.17 + i) * 7);
+    }
+    ctx.strokeStyle = `rgba(${seed > 0.45 ? 80 : 255}, ${seed > 0.45 ? 245 : 75}, 255, ${0.08 + seed * 0.22})`;
+    ctx.lineWidth = 1 + seed * 2.4;
+    ctx.stroke();
+  }
+
+  // Occasional horizontal energy cuts.
+  for (let i = 0; i < 3; i++) {
+    const seed = neonHash(i + 20, Math.floor(t * 1.7));
+    const flash = Math.max(0, Math.sin((t * 3.1 + seed * 8) % Math.PI));
+    if (flash < 0.75) continue;
+    const y = h * seed;
+    ctx.globalAlpha = (flash - 0.75) * 1.4;
+    const cut = ctx.createLinearGradient(0, y, w, y);
+    cut.addColorStop(0, "rgba(0,0,0,0)");
+    cut.addColorStop(0.25, "rgba(68, 244, 255, 0.9)");
+    cut.addColorStop(0.5, "rgba(255, 48, 221, 0.85)");
+    cut.addColorStop(0.75, "rgba(68, 244, 255, 0.9)");
+    cut.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = cut;
+    ctx.fillRect(0, y - 2, w, 4);
+  }
+
+  // Floating holographic shards.
+  ctx.globalAlpha = 1;
+  for (let i = 0; i < 8; i++) {
+    const seed = neonHash(i + 40, Math.floor(t * 0.8));
+    const x = w * (0.08 + ((seed * 1.37) % 0.84));
+    const y = h * (0.08 + ((neonHash(i + 50, 7) * 1.21) % 0.84));
+    const size = 14 + seed * 42;
+    const drift = Math.sin(t * (1.2 + seed) + i) * 10;
+    const rotation = t * (0.35 + seed * 0.65) + i * 0.9;
+    ctx.save();
+    ctx.translate(x + drift, y - drift * 0.35);
+    ctx.rotate(rotation);
+    ctx.fillStyle = seed > 0.5 ? "rgba(78, 244, 255, 0.18)" : "rgba(255, 70, 224, 0.16)";
+    ctx.strokeStyle = seed > 0.5 ? "rgba(118, 248, 255, 0.44)" : "rgba(255, 120, 235, 0.38)";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.45, -size * 0.2);
+    ctx.lineTo(size * 0.38, -size * 0.52);
+    ctx.lineTo(size * 0.56, size * 0.1);
+    ctx.lineTo(-size * 0.28, size * 0.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Expanding pulse rings.
+  for (let i = 0; i < 4; i++) {
+    const seed = neonHash(i + 80, Math.floor(t * 0.6));
+    const cycle = (t * (0.32 + seed * 0.18) + seed * 2.7) % 1;
+    const radius = 40 + cycle * Math.min(w, h) * 0.28;
+    const alpha = (1 - cycle) * 0.24;
+    const x = w * (0.18 + ((seed * 0.93 + i * 0.13) % 0.64));
+    const y = h * (0.22 + ((neonHash(i + 90, 5) * 0.91 + i * 0.09) % 0.5));
+    ctx.beginPath();
+    ctx.strokeStyle = i % 2 === 0
+      ? `rgba(88, 244, 255, ${alpha})`
+      : `rgba(255, 72, 220, ${alpha})`;
+    ctx.lineWidth = 1.5 + (1 - cycle) * 2.4;
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // Vertical scan pillars with soft flicker.
+  for (let i = 0; i < 4; i++) {
+    const seed = neonHash(i + 120, Math.floor(t * 2.2));
+    const flicker = Math.max(0, Math.sin(t * (5.5 + i) + seed * 12));
+    const x = w * (0.12 + ((seed * 0.81 + i * 0.19) % 0.76));
+    const pillar = ctx.createLinearGradient(x, 0, x, h);
+    pillar.addColorStop(0, "rgba(0,0,0,0)");
+    pillar.addColorStop(0.2, `rgba(80, 244, 255, ${0.04 + flicker * 0.1})`);
+    pillar.addColorStop(0.5, `rgba(255, 64, 220, ${0.03 + flicker * 0.08})`);
+    pillar.addColorStop(0.8, `rgba(80, 244, 255, ${0.04 + flicker * 0.1})`);
+    pillar.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = pillar;
+    ctx.fillRect(x - 8 - seed * 10, 0, 16 + seed * 20, h);
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+}
+
+function neonHash(a, b) {
+  const n = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+function drawPrism(w, h) {
+  const t = performance.now() / 1000;
+  const cx = w / 2;
+  const cy = h / 2;
+  ctx.fillStyle = "#070511";
+  ctx.fillRect(0, 0, w, h);
+  ctx.globalCompositeOperation = "screen";
+
+  // Rotating mirrored copies create a live kaleidoscope inside the frame.
+  for (let i = 0; i < 7; i++) {
+    const direction = i % 2 === 0 ? 1 : -1;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(direction * (i - 3) * 0.075 + Math.sin(t * 1.3 + i) * 0.035);
+    ctx.scale(direction * (1.02 + i * 0.008), 1.02 + i * 0.008);
+    ctx.translate(-cx, -cy);
+    ctx.filter = `saturate(2.4) contrast(1.35) hue-rotate(${i * 51 + t * 28}deg)`;
+    ctx.globalAlpha = 0.16 + (i === 3 ? 0.12 : 0);
+    drawMirrored(ctx, w, h, (i - 3) * 8 + Math.sin(t * 2 + i) * 4);
+    ctx.restore();
+  }
+
+  ctx.filter = "blur(14px)";
+  ctx.globalAlpha = 0.2;
+  const flare = ctx.createRadialGradient(
+    cx + Math.sin(t * 0.8) * w * 0.2,
+    cy + Math.cos(t * 0.7) * h * 0.2,
+    0,
+    cx,
+    cy,
+    Math.max(w, h) * 0.7
+  );
+  flare.addColorStop(0, "rgba(255, 70, 218, 0.8)");
+  flare.addColorStop(0.45, "rgba(49, 220, 255, 0.25)");
+  flare.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = flare;
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.filter = "none";
+  ctx.globalAlpha = 0.6;
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 12; i++) {
+    const y = (i / 12) * h + Math.sin(t * 1.6 + i * 1.7) * 24;
+    ctx.strokeStyle = `hsla(${180 + i * 23}, 100%, 70%, 0.5)`;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.bezierCurveTo(w * 0.28, y - 30, w * 0.7, y + 30, w, y);
+    ctx.stroke();
+  }
+  ctx.globalCompositeOperation = "source-over";
+}
+
+function drawAurora(w, h) {
+  const t = performance.now() / 1000;
+  ctx.filter = "saturate(1.4) contrast(1.15) brightness(0.82)";
+  drawMirrored(ctx, w, h);
+  ctx.filter = "none";
+  ctx.globalCompositeOperation = "screen";
+
+  // Wide, blurred ribbons move slowly across the live image.
+  for (let i = 0; i < 6; i++) {
+    const phase = t * (0.35 + i * 0.025) + i * 1.2;
+    ctx.save();
+    ctx.globalAlpha = 0.16;
+    ctx.filter = `blur(${28 + i * 5}px)`;
+    ctx.strokeStyle = `hsl(${150 + i * 32 + Math.sin(t) * 18}, 100%, 64%)`;
+    ctx.lineWidth = 72 + i * 12;
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.1, h * (0.18 + i * 0.14));
+    ctx.bezierCurveTo(
+      w * 0.24,
+      h * (0.42 + Math.sin(phase) * 0.18),
+      w * 0.72,
+      h * (0.04 + Math.cos(phase) * 0.22),
+      w * 1.1,
+      h * (0.28 + i * 0.1)
+    );
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.filter = "none";
+  ctx.globalAlpha = 0.7;
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 5; i++) {
+    const phase = t * 1.4 + i * 0.8;
+    ctx.strokeStyle = `hsla(${165 + i * 28}, 100%, 74%, 0.65)`;
+    ctx.beginPath();
+    for (let x = 0; x <= w; x += 12) {
+      const y =
+        h * (0.2 + i * 0.15) +
+        Math.sin(x * 0.012 + phase) * 24 +
+        Math.sin(x * 0.027 - phase * 0.7) * 12;
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.globalCompositeOperation = "source-over";
+}
+
+function drawFilm(w, h) {
+  const t = performance.now() / 1000;
+  const grain = 0.06;
+  ctx.fillStyle = "#120f0b";
+  ctx.fillRect(0, 0, w, h);
+  ctx.globalCompositeOperation = "screen";
+
+  // Warm print-style base.
+  ctx.filter = "saturate(0.9) contrast(1.1) sepia(0.28) brightness(0.95)";
+  ctx.globalAlpha = 0.92;
+  drawMirrored(ctx, w, h);
+
+  // Slight chroma offset for a film-projector feel.
+  ctx.filter = "saturate(1.15) contrast(1.05) sepia(0.18) hue-rotate(4deg)";
+  ctx.globalAlpha = 0.26;
+  drawMirrored(ctx, w, h, 2.5 + Math.sin(t * 1.4) * 1.5);
+
+  ctx.filter = "saturate(1.05) contrast(1.05) sepia(0.08) hue-rotate(-3deg)";
+  ctx.globalAlpha = 0.22;
+  drawMirrored(ctx, w, h, -2.5 - Math.sin(t * 1.4) * 1.5);
+
+  ctx.filter = "none";
+  ctx.globalAlpha = 1;
+
+  // Grain overlay.
+  const step = 3;
+  for (let y = 0; y < h; y += step) {
+    for (let x = 0; x < w; x += step) {
+      const n = (Math.sin(x * 12.9898 + y * 78.233 + t * 35.7) * 43758.5453) % 1;
+      const g = ((n < 0 ? n + 1 : n) - 0.5) * 255 * grain;
+      ctx.fillStyle = `rgba(${140 + g * 0.4 | 0},${120 + g * 0.3 | 0},${100 + g * 0.2 | 0},0.22)`;
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
+
+  // Light leak / vignetting.
+  const vignette = ctx.createRadialGradient(
+    w * (0.5 + Math.sin(t * 0.12) * 0.02),
+    h * (0.48 + Math.cos(t * 0.14) * 0.02),
+    Math.min(w, h) * 0.2,
+    w / 2,
+    h / 2,
+    Math.max(w, h) * 0.72
+  );
+  vignette.addColorStop(0, "rgba(0,0,0,0)");
+  vignette.addColorStop(0.6, "rgba(0,0,0,0.06)");
+  vignette.addColorStop(1, "rgba(0,0,0,0.28)");
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, w, h);
+
+  // Occasional subtle scratches.
+  ctx.globalAlpha = 0.18;
+  ctx.strokeStyle = "rgba(255, 245, 220, 0.55)";
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 3; i++) {
+    const x = (w * (0.18 + i * 0.26) + Math.sin(t * 1.3 + i * 17) * 14) | 0;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x + Math.sin(t * 0.7 + i) * 8, h);
+    ctx.stroke();
+  }
+
+  ctx.globalCompositeOperation = "source-over";
+}
+
+const particleField = [];
+for (let i = 0; i < 160; i++) {
+  particleField.push({
+    x: Math.random(),
+    y: Math.random(),
+    vx: (Math.random() - 0.5) * 0.002,
+    vy: (Math.random() - 0.5) * 0.002,
+    r: 0.8 + Math.random() * 2.2,
+    phase: Math.random() * Math.PI * 2,
+  });
+}
+
+function drawParticles(w, h, q) {
+  const t = performance.now() / 1000;
+  const bb = quadBBox(q);
+  const cx = (bb.x0 + bb.x1) / 2;
+  const cy = (bb.y0 + bb.y1) / 2;
+  const influence = Math.max(w, h) * 0.2;
+
+  ctx.fillStyle = "rgba(4, 6, 12, 0.28)";
+  ctx.fillRect(0, 0, w, h);
+  ctx.globalCompositeOperation = "screen";
+
+  for (const p of particleField) {
+    const px = p.x * w;
+    const py = p.y * h;
+    const dx = cx - px;
+    const dy = cy - py;
+    const dist = Math.hypot(dx, dy) + 0.001;
+    const pull = Math.max(0, 1 - dist / influence);
+    const swirl = 0.0007 + pull * 0.0022;
+    const ax = (-dy / dist) * swirl + Math.cos(t + p.phase) * 0.0008 + (Math.random() - 0.5) * 0.0003;
+    const ay = (dx / dist) * swirl + Math.sin(t * 1.1 + p.phase) * 0.0008 + (Math.random() - 0.5) * 0.0003;
+
+    p.vx = p.vx * 0.985 + ax;
+    p.vy = p.vy * 0.985 + ay;
+    p.x += p.vx;
+    p.y += p.vy;
+
+    if (p.x < -0.1) p.x = 1.1;
+    if (p.x > 1.1) p.x = -0.1;
+    if (p.y < -0.1) p.y = 1.1;
+    if (p.y > 1.1) p.y = -0.1;
+
+    const b = (0.35 + pull * 0.65) * (0.7 + 0.3 * Math.sin(t * 3 + p.phase));
+    ctx.beginPath();
+    ctx.fillStyle = `rgba(${Math.round(120 + pull * 120)}, ${Math.round(210 - pull * 60)}, 255, ${0.18 + pull * 0.45})`;
+    ctx.arc(p.x * w, p.y * h, p.r * (0.6 + pull * 1.7), 0, Math.PI * 2);
+    ctx.fill();
+
+    if (pull > 0.35) {
+      ctx.strokeStyle = `rgba(145, 244, 255, ${0.15 * b})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(px + p.vx * w * 30, py + p.vy * h * 30);
+      ctx.stroke();
+    }
+  }
+
+  // Faint constellation lines near the frame.
+  ctx.strokeStyle = "rgba(120, 225, 255, 0.08)";
+  ctx.lineWidth = 1;
+  for (let i = 0; i < q.length; i++) {
+    const a = q[i];
+    const b = q[(i + 1) % q.length];
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+
+  ctx.globalCompositeOperation = "source-over";
+}
+
+const tdLayer = document.createElement("canvas");
+const tdCtx = tdLayer.getContext("2d", { willReadFrequently: true });
+let tdFlow = null;
+let tdFlowW = 0;
+let tdFlowH = 0;
+let tdFeedback = null;
+let tdFeedbackW = 0;
+let tdFeedbackH = 0;
+
+function drawTouchDesigner(w, h, q) {
+  const t = performance.now() / 1000;
+  const bb = quadBBox(q);
+  const pad = 36;
+  const x0 = Math.max(0, bb.x0 - pad);
+  const y0 = Math.max(0, bb.y0 - pad);
+  const x1 = Math.min(w, bb.x1 + pad);
+  const y1 = Math.min(h, bb.y1 + pad);
+  const regionW = Math.max(2, Math.round(x1 - x0));
+  const regionH = Math.max(2, Math.round(y1 - y0));
+
+  if (tdLayer.width !== w || tdLayer.height !== h) {
+    tdLayer.width = w;
+    tdLayer.height = h;
+  }
+  if (tdFeedbackW !== w || tdFeedbackH !== h || !tdFeedback) {
+    tdFeedbackW = w;
+    tdFeedbackH = h;
+    tdFeedback = tdCtx.createImageData(w, h);
+  }
+  if (tdFlowW !== w || tdFlowH !== h || !tdFlow) {
+    tdFlowW = w;
+    tdFlowH = h;
+    tdFlow = new Float32Array(w * h * 2);
+  }
+
+  // Base camera feed with a slight dark lift.
+  ctx.filter = "saturate(1.2) contrast(1.2) brightness(0.92)";
+  ctx.globalAlpha = 0.92;
+  drawMirrored(ctx, w, h);
+  ctx.filter = "none";
+  ctx.globalAlpha = 1;
+
+  // Feedback pass: sample the previous frame and scale it slightly.
+  tdCtx.clearRect(0, 0, w, h);
+  tdCtx.putImageData(tdFeedback, 0, 0);
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  ctx.globalAlpha = 0.34;
+  ctx.translate(w / 2, h / 2);
+  ctx.scale(0.992, 0.992);
+  ctx.translate(-w / 2, -h / 2);
+  ctx.filter = "blur(1.8px) saturate(1.3) contrast(1.08)";
+  ctx.drawImage(tdLayer, 0, 0);
+  ctx.restore();
+
+  // Build a simple flow field around the active frame.
+  for (let y = Math.max(0, Math.floor(y0)); y < Math.min(h, Math.ceil(y1)); y += 6) {
+    for (let x = Math.max(0, Math.floor(x0)); x < Math.min(w, Math.ceil(x1)); x += 6) {
+      const i = y * w + x;
+      const dx = x - ((bb.x0 + bb.x1) / 2);
+      const dy = y - ((bb.y0 + bb.y1) / 2);
+      const dist = Math.hypot(dx, dy) + 1;
+      const swirl = Math.sin(t * 0.8 + dist * 0.015) * 0.8 + Math.cos(t * 1.1 + x * 0.01) * 0.6;
+      tdFlow[i * 2] = (-dy / dist) * swirl * 0.9 + Math.sin(y * 0.015 + t * 0.7) * 0.5;
+      tdFlow[i * 2 + 1] = (dx / dist) * swirl * 0.9 + Math.cos(x * 0.014 - t * 0.6) * 0.5;
+    }
+  }
+
+  // Thresholded glow blobs around luminance changes.
+  const image = ctx.getImageData(0, 0, w, h);
+  const d = image.data;
+  for (let y = 1; y < h - 1; y += 2) {
+    for (let x = 1; x < w - 1; x += 2) {
+      const p = (y * w + x) * 4;
+      const lum = 0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2];
+      const edge =
+        Math.abs(lum - (0.299 * d[p - 4] + 0.587 * d[p - 3] + 0.114 * d[p - 2])) +
+        Math.abs(lum - (0.299 * d[p - w * 4] + 0.587 * d[p - w * 4 + 1] + 0.114 * d[p - w * 4 + 2]));
+      if (edge > 60) {
+        const gx = tdFlow[(y * w + x) * 2];
+        const gy = tdFlow[(y * w + x) * 2 + 1];
+        ctx.fillStyle = edge > 100 ? "rgba(90, 255, 240, 0.85)" : "rgba(255, 120, 220, 0.55)";
+        ctx.beginPath();
+        ctx.arc(x + gx * 5, y + gy * 5, 1.2 + Math.min(5, edge / 35), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // Neon ribbons that follow the frame.
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  for (let i = 0; i < 4; i++) {
+    const hue = 170 + i * 34;
+    ctx.strokeStyle = `hsla(${hue}, 100%, 65%, 0.55)`;
+    ctx.lineWidth = 18 - i * 3;
+    ctx.filter = `blur(${8 - i}px)`;
+    ctx.beginPath();
+    for (let sx = x0; sx <= x1; sx += 10) {
+      const sy = y0 + (regionH * (i + 1)) / 5 + Math.sin(sx * 0.02 + t * (0.8 + i * 0.1)) * 26;
+      if (sx === x0) ctx.moveTo(sx, sy);
+      else ctx.lineTo(sx, sy);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Feed some of the current frame back for the next draw.
+  tdFeedback = image;
+
+  // Frame outline and small TD-style brackets.
+  drawFrameOutline(q);
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  ctx.strokeStyle = "rgba(120, 250, 255, 0.55)";
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([8, 6]);
+  const corners = [
+    [x0, y0],
+    [x1, y0],
+    [x1, y1],
+    [x0, y1],
+  ];
+  for (let i = 0; i < corners.length; i++) {
+    const [cx, cy] = corners[i];
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + (i % 2 === 0 ? 20 : -20), cy);
+    ctx.lineTo(cx, cy + (i < 2 ? 20 : -20));
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawFrameOutline(q) {
+  const t = performance.now() / 1000;
+  ctx.save();
+  ctx.globalAlpha = presence;
+
+  const bb = quadBBox(q);
+  const pad = 22;
+  const x0 = Math.max(0, bb.x0 - pad);
+  const y0 = Math.max(0, bb.y0 - pad);
+  const x1 = Math.min(canvas.width, bb.x1 + pad);
+  const y1 = Math.min(canvas.height, bb.y1 + pad);
+  const w = x1 - x0;
+  const h = y1 - y0;
+
+  // Soft scanning grid behind the frame.
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x0, y0, w, h);
+  ctx.clip();
+  ctx.globalAlpha = presence * 0.16;
+  ctx.strokeStyle = "rgba(105, 231, 255, 0.42)";
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2, 14]);
+  ctx.lineDashOffset = -t * 22;
+  for (let gx = Math.ceil(x0 / 28) * 28; gx < x1; gx += 28) {
+    ctx.beginPath();
+    ctx.moveTo(gx, y0);
+    ctx.lineTo(gx, y1);
+    ctx.stroke();
+  }
+  for (let gy = Math.ceil(y0 / 28) * 28; gy < y1; gy += 28) {
+    ctx.beginPath();
+    ctx.moveTo(x0, gy);
+    ctx.lineTo(x1, gy);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Main energy rail.
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.setLineDash([18, 8]);
+  ctx.lineDashOffset = -t * 68;
+  const rail = ctx.createLinearGradient(q[0].x, q[0].y, q[2].x, q[2].y);
+  rail.addColorStop(0, "rgba(120, 248, 255, 0.98)");
+  rail.addColorStop(0.33, "rgba(255, 116, 212, 0.95)");
+  rail.addColorStop(0.66, "rgba(113, 255, 193, 0.95)");
+  rail.addColorStop(1, "rgba(120, 248, 255, 0.98)");
+  quadPath(ctx, q);
+  ctx.lineWidth = 2.8;
+  ctx.strokeStyle = rail;
+  ctx.shadowColor = "rgba(56, 222, 255, 0.95)";
+  ctx.shadowBlur = 16;
+  ctx.stroke();
+
+  // Secondary glow rail for depth and motion.
+  const glow = ctx.createLinearGradient(q[1].x, q[1].y, q[3].x, q[3].y);
+  glow.addColorStop(0, "rgba(86, 90, 255, 0.0)");
+  glow.addColorStop(0.5, "rgba(93, 88, 255, 0.32)");
+  glow.addColorStop(1, "rgba(86, 90, 255, 0.0)");
+  ctx.setLineDash([3, 13]);
+  ctx.lineDashOffset = t * 32;
+  ctx.lineWidth = 9;
+  ctx.strokeStyle = glow;
+  ctx.shadowColor = "rgba(93, 88, 255, 0.45)";
+  ctx.shadowBlur = 22;
+  ctx.stroke();
+
+  ctx.setLineDash([]);
+  ctx.shadowBlur = 0;
+
+  // Tiny spark particles orbiting the frame edges.
+  ctx.globalAlpha *= 0.95;
+  for (let i = 0; i < 20; i++) {
+    const edge = i % 4;
+    const u = ((t * 0.18 + i * 0.073) % 1 + 1) % 1;
+    const a = q[edge];
+    const b = q[(edge + 1) % 4];
+    const px = a.x + (b.x - a.x) * u;
+    const py = a.y + (b.y - a.y) * u;
+    const normalX = -(b.y - a.y);
+    const normalY = b.x - a.x;
+    const normalMag = Math.hypot(normalX, normalY) || 1;
+    const offset = 6 + Math.sin(t * 4 + i) * 3;
+    ctx.beginPath();
+    ctx.arc(
+      px + (normalX / normalMag) * offset,
+      py + (normalY / normalMag) * offset,
+      1.2 + (i % 3) * 0.4,
+      0,
+      Math.PI * 2
+    );
+    ctx.fillStyle =
+      i % 2 === 0 ? "rgba(160, 252, 255, 0.85)" : "rgba(255, 130, 230, 0.75)";
+    ctx.fill();
+  }
+
+  // HUD brackets at the frame corners.
+  ctx.strokeStyle = "rgba(180, 250, 255, 0.92)";
+  ctx.lineWidth = 2;
+  q.forEach((p, i) => {
+    const next = q[(i + 1) % 4];
+    const px = next.x - p.x;
+    const py = next.y - p.y;
+    const mag = Math.hypot(px, py) || 1;
+    const ux = px / mag;
+    const uy = py / mag;
+    const nx = -uy;
+    const ny = ux;
+    const arm = 18;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(p.x + ux * arm + nx * 8, p.y + uy * arm + ny * 8);
+    ctx.lineTo(p.x + ux * 28, p.y + uy * 28);
+    ctx.stroke();
+  });
+
+  // Internal tech lines.
+  for (let i = 0; i < 3; i++) {
+    const a = q[i];
+    const b = q[(i + 2) % 4];
+    const mix = 0.28 + i * 0.16;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(a.x + (b.x - a.x) * mix, a.y + (b.y - a.y) * mix);
+    ctx.lineTo(b.x, b.y);
+    ctx.strokeStyle = i === 1 ? "rgba(90, 255, 213, 0.55)" : "rgba(255, 255, 255, 0.22)";
+    ctx.lineWidth = 1.3;
+    ctx.stroke();
+  }
+
+  // Corner nodes with animated aura.
+  q.forEach((p, i) => {
+    const pulse = (Math.sin(t * 4 + i * 1.7) + 1) * 0.5;
+    const r = 5.5 + pulse * 2;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 14 + pulse * 10, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(90, 255, 229, ${0.28 * (1 - pulse) * presence})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = pulse > 0.5 ? "#f6ffff" : "#a7f7ff";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r + 1.5, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(8, 14, 20, 0.35)";
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  });
+
+  // Scanning ticks along the longest edge.
+  const edgeA = q[0];
+  const edgeB = q[1];
+  const tickCount = 9;
+  for (let i = 0; i < tickCount; i++) {
+    const u = i / (tickCount - 1);
+    const x = edgeA.x + (edgeB.x - edgeA.x) * u;
+    const y = edgeA.y + (edgeB.y - edgeA.y) * u;
+    const nx = -(edgeB.y - edgeA.y);
+    const ny = edgeB.x - edgeA.x;
+    const len = 10 + Math.sin(t * 6 + i) * 4;
+    const mag = Math.hypot(nx, ny) || 1;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + (nx / mag) * len, y + (ny / mag) * len);
+    ctx.strokeStyle = `rgba(112, 235, 255, ${0.18 + pulseAt(t, i) * 0.28})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Distance marker on the top edge.
+  const topMidX = (q[0].x + q[1].x) / 2;
+  const topMidY = (q[0].y + q[1].y) / 2;
+  ctx.save();
+  ctx.translate(topMidX, topMidY);
+  ctx.rotate(Math.atan2(q[1].y - q[0].y, q[1].x - q[0].x));
+  ctx.fillStyle = "rgba(8, 14, 20, 0.72)";
+  ctx.strokeStyle = "rgba(120, 242, 255, 0.95)";
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.roundRect(-34, -14, 68, 28, 8);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "rgba(220, 252, 255, 0.96)";
+  ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(`${Math.round(w)}×${Math.round(h)}`, 0, -1);
+  ctx.restore();
+
+  ctx.restore();
+}
+
+function pulseAt(t, i) {
+  return (Math.sin(t * 3.1 + i * 0.9) + 1) * 0.5;
+}
+
+function loop() {
+  const w = canvas.width;
+  const h = canvas.height;
+  const now = performance.now();
+
+  if (autoRandom && now - lastRandomSwitch > RANDOM_INTERVAL_MS) {
+    pickRandomEffect();
+    lastRandomSwitch = now;
+    syncToolbar();
+  }
+
+  // Base layer: mirrored camera feed.
+  drawMirrored(ctx, w, h);
+
+  // Run detection once per new video frame.
+  if (DEMO) {
+    lastResults = { landmarks: fakeHands(now / 1000) };
+  } else if (video.currentTime !== lastVideoTime) {
+    lastVideoTime = video.currentTime;
+    lastResults = landmarker.detectForVideo(video, now);
+  }
+
+  let targetQuad = null;
+  if (lastResults && lastResults.landmarks && lastResults.landmarks.length === 2) {
+    targetQuad = computeQuad(lastResults.landmarks);
+  }
+
+  if (targetQuad) {
+    if (!corners) {
+      lostFrames = 0;
+      frameActive = true;
+      jumpFrames = 0;
+      corners = targetQuad;
+      presence = Math.min(1, presence + 0.12);
+    } else {
+      // Corner slots are anatomical (same finger every frame) — smooth 1:1.
+      const matched = targetQuad;
+      const moved =
+        matched.reduce((s, p, i) => s + dist(p, corners[i]), 0) / 4;
+      // Occluded/crossing hands produce wild one-frame mis-detections.
+      // Ignore a far-jumped quad unless it persists — then it's a real move.
+      // Only quads that genuinely teleport (≥30% of the screen in one frame,
+      // beyond any real hand motion) are treated as suspect mis-detections.
+      if (moved > canvas.width * 0.3 && ++jumpFrames < JUMP_CONFIRM_FRAMES) {
+        if (++lostFrames > MAX_LOST_FRAMES) {
+          presence = Math.max(0, presence - 0.05);
+        }
+      } else {
+        lostFrames = 0;
+        frameActive = true;
+        jumpFrames = 0;
+        // Velocity-adaptive smoothing (One Euro-style): damp pixel jitter
+        // when the hands are nearly still, follow at high gain the moment
+        // they genuinely move so the frame feels glued to the fingers.
+        const alpha = Math.min(
+          0.85,
+          Math.max(0.35, moved / (canvas.width * 0.05))
+        );
+        corners = corners.map((c, i) => lerpPt(c, matched[i], alpha));
+        presence = Math.min(1, presence + 0.12);
+      }
+    }
+  } else if (corners && ++lostFrames <= MAX_LOST_FRAMES) {
+    // Brief tracking dropout: hold the last quad instead of fading.
+    presence = Math.min(1, presence + 0.12);
+  } else {
+    presence = Math.max(0, presence - 0.05);
+    if (presence === 0) {
+      corners = null;
+      frameActive = false;
+      jumpFrames = 0;
+    }
+  }
+
+  if (corners && presence > 0.01) {
+    applyEffect(corners);
+    drawFrameOutline(corners);
+  }
+
+  hintEl.classList.toggle("hidden", presence > 0.5);
+
+  requestAnimationFrame(loop);
+}
+
+// ---- Demo mode helpers ----
+
+function makeDemoStream() {
+  const demo = document.createElement("canvas");
+  demo.width = 1280;
+  demo.height = 720;
+  const d = demo.getContext("2d");
+  function paint() {
+    const t = performance.now() / 1000;
+    const g = d.createLinearGradient(0, 0, demo.width, demo.height);
+    g.addColorStop(0, "#1c2a4a");
+    g.addColorStop(1, "#3a1c4a");
+    d.fillStyle = g;
+    d.fillRect(0, 0, demo.width, demo.height);
+    for (let i = 0; i < 6; i++) {
+      const x = demo.width * (0.15 + 0.14 * i) + Math.sin(t * 0.8 + i) * 60;
+      const y = demo.height * 0.5 + Math.cos(t * 0.6 + i * 1.7) * 160;
+      d.beginPath();
+      d.arc(x, y, 50 + 18 * Math.sin(t + i), 0, Math.PI * 2);
+      d.fillStyle = `hsl(${(i * 60 + t * 30) % 360}, 75%, 62%)`;
+      d.fill();
+    }
+    d.fillStyle = "rgba(255,255,255,0.9)";
+    d.font = "bold 56px sans-serif";
+    d.textAlign = "center";
+    // Draw mirrored so it reads correctly after the canvas flips it back.
+    d.save();
+    d.translate(demo.width, 0);
+    d.scale(-1, 1);
+    d.fillText("演示画面", demo.width / 2, demo.height / 2);
+    d.restore();
+    requestAnimationFrame(paint);
+  }
+  paint();
+  return demo.captureStream(30);
+}
+
+function fakeHand(indexTip, thumbTip, indexMcp) {
+  const lm = Array.from({ length: 21 }, () => ({ ...indexMcp, z: 0 }));
+  lm[INDEX_TIP] = { ...indexTip, z: 0 };
+  lm[THUMB_TIP] = { ...thumbTip, z: 0 };
+  lm[INDEX_MCP] = { ...indexMcp, z: 0 };
+  return lm;
+}
+
+function fakeHands(t) {
+  const ox = Math.sin(t * 0.9) * 0.02;
+  const oy = Math.cos(t * 0.7) * 0.02;
+  return [
+    fakeHand(
+      { x: 0.74 + ox, y: 0.26 + oy },
+      { x: 0.8 + ox, y: 0.56 + oy },
+      { x: 0.75 + ox, y: 0.4 + oy }
+    ),
+    fakeHand(
+      { x: 0.26 - ox, y: 0.28 - oy },
+      { x: 0.2 - ox, y: 0.58 - oy },
+      { x: 0.25 - ox, y: 0.44 - oy }
+    ),
+  ];
+}
+
+init().catch((err) => {
+  console.error(err);
+  trackEvent("Live Camera Failed", {
+    reason: err.name || "unknown",
+  });
+  statusEl.classList.remove("hidden");
+  statusEl.querySelector(".spinner")?.remove();
+  statusText.textContent =
+    err.name === "NotAllowedError"
+      ? "摄像头权限被拒绝。请允许摄像头访问后刷新页面。"
+      : `启动失败：${err.message}`;
+});
+
+  </script>
+</body>
+</html>

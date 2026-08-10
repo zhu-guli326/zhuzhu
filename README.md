@@ -11,6 +11,7 @@
 - 反向蒙版：可设置一个时间区间，把框内和框外画面反过来。
 - 酷炫片段：支持故障闪切、霓虹扫描、冲击波、暗场聚焦等短片段特效。
 - 本地导出：页面会完整播放一次并保存合成视频。
+- 实时摄像头特效：`live.html` 会打开摄像头，用双手手势框住画面并实时切换像素化、梵高、霓虹、粒子等滤镜。
 
 ## 本地运行
 
@@ -24,6 +25,18 @@ python3 -m http.server 8124
 
 ```text
 http://127.0.0.1:8124/?v=public-release
+```
+
+实时摄像头模式：
+
+```text
+http://127.0.0.1:8124/live.html
+```
+
+无需摄像头的演示模式：
+
+```text
+http://127.0.0.1:8124/live.html?demo
 ```
 
 ## 部署到 Cloudflare Pages
@@ -40,6 +53,20 @@ Root directory: /
 ```
 
 连接完成后，每次推送到 `main` 都会自动构建并发布到 Cloudflare Pages。
+
+## 部署到 Vercel
+
+当前项目是 vanilla HTML/CSS/JavaScript 静态站点，不需要安装 `@vercel/analytics` 或添加 React 组件。`index.html` 已接入 Vercel Web Analytics 脚本，部署到 Vercel 后访问线上站点即可开始统计。
+
+页面支持中英文：首次访问会根据浏览器地区码和系统时区自动选择语言，也可以用右上角 `中 / EN` 手动切换。
+
+已接入 Vercel Web Analytics 自定义事件，记录语言切换、联系方式点击、素材上传、预览、导出、取景框工具、反向蒙版和特效操作。埋点只记录文件类型、扩展名、大小区间、时长和分辨率等技术属性，不上传文件名或素材内容。
+
+```text
+Framework preset: Other
+Build command: npm run build
+Output directory: dist
+```
 
 服务器处理版本：
 

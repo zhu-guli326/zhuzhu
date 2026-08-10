@@ -93,9 +93,9 @@ class FrameTracker:
             info.append({"index": index, "thumb": thumb, "wx": px(WRIST)[0]})
         info.sort(key=lambda hd: hd["wx"])
         a, b = info
-        pts = [a["index"], b["index"], b["thumb"], a["thumb"]]
+        pts = angle_sorted([a["index"], b["index"], b["thumb"], a["thumb"]])
         min_area = AREA_KEEP if self.frame_active else AREA_ACQUIRE
-        if polygon_area(angle_sorted(pts)) < self.w * self.h * min_area:
+        if polygon_area(pts) < self.w * self.h * min_area:
             return None
         return pts
 
