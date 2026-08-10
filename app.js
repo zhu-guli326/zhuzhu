@@ -37,6 +37,14 @@ const btnFrameFit = document.getElementById("btn-frame-fit");
 const btnFrameReset = document.getElementById("btn-frame-reset");
 const btnAutoTrack = document.getElementById("btn-auto-track");
 const btnLoadDemo = document.getElementById("btn-load-demo");
+const uploadModeButton = document.getElementById("btn-upload-mode");
+const liveModeButton = document.getElementById("btn-live-mode");
+const liveDrawer = document.getElementById("live-drawer");
+const liveDrawerPanel = document.querySelector(".live-drawer-panel");
+const liveDrawerFrame = document.getElementById("live-drawer-frame");
+const liveFullscreenButton = document.getElementById("btn-live-fullscreen");
+const liveFullscreenLabel = document.getElementById("live-fullscreen-label");
+const liveCloseButton = document.getElementById("btn-live-close");
 const editingControls = document.getElementById("editing-controls");
 const uploadCards = document.querySelectorAll(".upload[data-file-target]");
 const languageButtons = document.querySelectorAll("[data-lang]");
@@ -103,6 +111,7 @@ let landmarkerLoading = null;
 let autoTracking = true;
 let frameMode = "auto";
 let lastVideoTime = -1;
+let liveCameraStream = null;
 
 const I18N = {
   zh: {
@@ -116,7 +125,12 @@ const I18N = {
     emailAria: "发送邮件到 juguli326@gmail.com",
     xiaohongshuAria: "打开 JGuli49724 的小红书主页",
     liveMode: "实时摄像头特效",
-    liveModeAria: "打开实时摄像头特效",
+    liveModeAria: "在当前页面打开实时摄像头特效",
+    liveDrawerTitle: "实时摄像头特效",
+    liveFrameTitle: "实时摄像头特效画面",
+    fullscreen: "全屏",
+    exitFullscreen: "退出全屏",
+    closeLive: "关闭实时画面",
     uploadMode: "上传视频",
     modeTabsAria: "创作模式",
     heroTitle: "手势框合成",
@@ -234,7 +248,12 @@ const I18N = {
     emailAria: "Email juguli326@gmail.com",
     xiaohongshuAria: "Open JGuli49724 on Xiaohongshu",
     liveMode: "Live Camera Effects",
-    liveModeAria: "Open live camera effects",
+    liveModeAria: "Open live camera effects in this page",
+    liveDrawerTitle: "Live Camera Effects",
+    liveFrameTitle: "Live camera effects preview",
+    fullscreen: "Fullscreen",
+    exitFullscreen: "Exit fullscreen",
+    closeLive: "Close live preview",
     uploadMode: "Upload Video",
     modeTabsAria: "Creation modes",
     heroTitle: "Hand-Frame Composer",
@@ -556,6 +575,92 @@ function setLanguage(lang) {
 
 languageButtons.forEach((button) => {
   button.addEventListener("click", () => setLanguage(button.dataset.lang));
+});
+
+function updateLiveFullscreenControl() {
+  if (!liveFullscreenButton) return;
+  const key = document.fullscreenElement === liveDrawerPanel ? "exitFullscreen" : "fullscreen";
+  const label = t(key);
+  liveFullscreenButton.dataset.i18nTitle = key;
+  liveFullscreenButton.dataset.i18nAria = key;
+  liveFullscreenButton.title = label;
+  liveFullscreenButton.setAttribute("aria-label", label);
+  if (liveFullscreenLabel) {
+    liveFullscreenLabel.dataset.i18n = key;
+    liveFullscreenLabel.textContent = label;
+  }
+}
+
+async function openLiveDrawer() {
+  if (!liveDrawer || !liveDrawerFrame) return;
+  liveDrawer.classList.add("is-open");
+  liveDrawer.setAttribute("aria-hidden", "false");
+  document.body.classList.add("live-drawer-open");
+  uploadModeButton?.classList.remove("is-active");
+  liveModeButton?.classList.add("is-active");
+  if (new URLSearchParams(location.search).has("demo")) {
+    liveDrawerFrame.src = "./live.html?embedded=1&demo";
+    updateLiveFullscreenControl();
+    return;
+  }
+  try {
+    if (!liveCameraStream || !liveCameraStream.active) {
+      liveCameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
+        audio: false,
+      });
+    }
+    if (!liveDrawer.classList.contains("is-open")) {
+      liveCameraStream.getTracks().forEach((track) => track.stop());
+      liveCameraStream = null;
+      return;
+    }
+    liveDrawerFrame.addEventListener("load", () => {
+      liveDrawerFrame.contentWindow?.receiveLiveCameraStream?.(liveCameraStream);
+    }, { once: true });
+    liveDrawerFrame.src = "./live.html?embedded=1";
+  } catch (err) {
+    console.warn("Live camera permission skipped", err);
+    liveDrawerFrame.src = "./live.html";
+  }
+  updateLiveFullscreenControl();
+}
+
+async function closeLiveDrawer() {
+  if (!liveDrawer || !liveDrawerFrame) return;
+  if (document.fullscreenElement === liveDrawerPanel) {
+    await document.exitFullscreen().catch(() => {});
+  }
+  liveDrawer.classList.remove("is-open");
+  liveDrawer.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("live-drawer-open");
+  uploadModeButton?.classList.add("is-active");
+  liveModeButton?.classList.remove("is-active");
+  liveDrawerFrame.removeAttribute("src");
+  liveCameraStream?.getTracks().forEach((track) => track.stop());
+  liveCameraStream = null;
+}
+
+async function toggleLiveFullscreen() {
+  if (!liveDrawerPanel) return;
+  try {
+    if (document.fullscreenElement === liveDrawerPanel) await document.exitFullscreen();
+    else await liveDrawerPanel.requestFullscreen();
+  } catch (err) {
+    console.warn("Live fullscreen skipped", err);
+  }
+  updateLiveFullscreenControl();
+}
+
+liveModeButton?.addEventListener("click", openLiveDrawer);
+liveCloseButton?.addEventListener("click", closeLiveDrawer);
+liveFullscreenButton?.addEventListener("click", toggleLiveFullscreen);
+liveDrawer?.querySelector("[data-live-close]")?.addEventListener("click", closeLiveDrawer);
+document.addEventListener("fullscreenchange", updateLiveFullscreenControl);
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || !liveDrawer?.classList.contains("is-open")) return;
+  if (document.fullscreenElement === liveDrawerPanel) return;
+  closeLiveDrawer();
 });
 
 document.querySelectorAll(".social-link").forEach((link) => {

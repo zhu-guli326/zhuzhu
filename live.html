@@ -62,6 +62,7 @@
       backdrop-filter: blur(12px);
     }
     #back-link:hover { background: rgba(255,255,255,0.12); }
+    .embedded #back-link { display: none; }
     #back-link svg {
       width: 18px;
       height: 18px;
@@ -267,7 +268,12 @@ const MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
 
 // Demo mode (?demo): synthetic video + fake landmarks, for testing without a camera.
-const DEMO = new URLSearchParams(location.search).has("demo");
+const URL_PARAMS = new URLSearchParams(location.search);
+const DEMO = URL_PARAMS.has("demo");
+const FRAMED = window.self !== window.top;
+const USE_SUPPLIED_CAMERA = FRAMED && URL_PARAMS.has("embedded");
+const CAMERA_START_TIMEOUT_MS = 8000;
+if (FRAMED) document.documentElement.classList.add("embedded");
 
 const WRIST = 0;
 const THUMB_TIP = 4;
@@ -367,6 +373,18 @@ const JUMP_CONFIRM_FRAMES = 2;
 let jumpFrames = 0;
 
 let landmarker = null;
+let suppliedCameraStream = null;
+let suppliedCameraStreamResolve = null;
+const suppliedCameraStreamReady = new Promise((resolve) => {
+  suppliedCameraStreamResolve = resolve;
+});
+window.receiveLiveCameraStream = (stream) => {
+  suppliedCameraStream = stream;
+  suppliedCameraStreamResolve?.(stream);
+};
+if (USE_SUPPLIED_CAMERA) {
+  window.parent?.postMessage({ type: "framelab-live-ready" }, location.origin);
+}
 let lastVideoTime = -1;
 let lastResults = null;
 let recordButton = null;
@@ -470,6 +488,75 @@ function resetRecordingUi(message = "开始录制视频") {
   if (recordTime) recordTime.textContent = "00:00";
 }
 
+function makeCameraStartError(name, message) {
+  const err = new Error(message);
+  err.name = name;
+  return err;
+}
+
+function waitForSuppliedCameraStream() {
+  if (suppliedCameraStream?.active) return Promise.resolve(suppliedCameraStream);
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(makeCameraStartError("TimeoutError", "父页面没有传入摄像头画面，请关闭后重试。"));
+    }, CAMERA_START_TIMEOUT_MS);
+
+    suppliedCameraStreamReady.then((stream) => {
+      clearTimeout(timeout);
+      if (stream?.active) resolve(stream);
+      else reject(makeCameraStartError("InvalidStateError", "摄像头画面已经停止，请关闭后重试。"));
+    });
+  });
+}
+
+function getCameraStream() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return Promise.reject(
+      makeCameraStartError("NotSupportedError", "当前浏览器不支持摄像头访问，请使用最新版 Chrome、Edge 或 Safari。")
+    );
+  }
+
+  return navigator.mediaDevices.getUserMedia({
+    video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
+    audio: false,
+  });
+}
+
+function waitForVideoReady() {
+  if (video.readyState >= HTMLMediaElement.HAVE_METADATA && video.videoWidth && video.videoHeight) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      clearTimeout(timeout);
+      video.removeEventListener("loadedmetadata", onReady);
+      video.removeEventListener("loadeddata", onReady);
+      video.removeEventListener("canplay", onReady);
+      video.removeEventListener("error", onError);
+    };
+    const onReady = () => {
+      if (!video.videoWidth || !video.videoHeight) return;
+      cleanup();
+      resolve();
+    };
+    const onError = () => {
+      cleanup();
+      reject(makeCameraStartError("NotReadableError", "摄像头画面无法播放，请关闭占用摄像头的应用后重试。"));
+    };
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(makeCameraStartError("TimeoutError", "摄像头已连接，但画面加载超时，请刷新后重试。"));
+    }, CAMERA_START_TIMEOUT_MS);
+
+    video.addEventListener("loadedmetadata", onReady);
+    video.addEventListener("loadeddata", onReady);
+    video.addEventListener("canplay", onReady);
+    video.addEventListener("error", onError);
+  });
+}
+
 function recordingMimeType() {
   return [
     "video/mp4;codecs=avc1.42E01E",
@@ -568,14 +655,11 @@ async function init() {
       minTrackingConfidence: 0.3,
     });
 
-    statusText.textContent = "正在请求摄像头权限…";
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
-      audio: false,
-    });
+    statusText.textContent = USE_SUPPLIED_CAMERA ? "正在连接摄像头…" : "正在请求摄像头权限…";
+    stream = USE_SUPPLIED_CAMERA ? await waitForSuppliedCameraStream() : await getCameraStream();
   }
   video.srcObject = stream;
-  await new Promise((res) => (video.onloadedmetadata = res));
+  await waitForVideoReady();
   await video.play();
 
   canvas.width = video.videoWidth;
