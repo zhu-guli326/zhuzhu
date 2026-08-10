@@ -1,5 +1,4 @@
 (function () {
-  const GA_MEASUREMENT_ID = "G-XTZETVK2ZL";
   const MAX_EVENT_PARAMS = 25;
   const MAX_PARAM_VALUE_LENGTH = 100;
   const GA_EVENT_NAMES = {
@@ -54,21 +53,6 @@
       return payload;
     }, {});
   }
-
-  window.dataLayer = window.dataLayer || [];
-  window.gtag = window.gtag || function () {
-    window.dataLayer.push(arguments);
-  };
-
-  const gtagScript = document.createElement("script");
-  gtagScript.async = true;
-  gtagScript.src =
-    "https://www.googletagmanager.com/gtag/js?id=" +
-    encodeURIComponent(GA_MEASUREMENT_ID);
-  document.head.appendChild(gtagScript);
-
-  window.gtag("js", new Date());
-  window.gtag("config", GA_MEASUREMENT_ID);
 
   window.trackAnalyticsEvent = function (name, data) {
     const payload = normalizeEventData(data);
