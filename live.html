@@ -319,6 +319,9 @@ const LIVE_EFFECTS = [
   { id: "neon", zh: "高压霓虹", en: "High-Voltage Neon" },
   { id: "raster", zh: "错位切片", en: "Slice Shift" },
   { id: "thermal", zh: "热成像", en: "Thermal" },
+  { id: "waveprint", zh: "波浪丝印", en: "Wave Screenprint" },
+  { id: "retropink", zh: "电子复古粉", en: "Retro Pink" },
+  { id: "spectrum", zh: "波谱", en: "Spectrum" },
 ];
 const EFFECTS = LIVE_EFFECTS.map((item) => ({
   id: item.id,
@@ -802,6 +805,18 @@ function applyEffect(q) {
     }
     case "thermal": {
       drawThermal(w, h);
+      break;
+    }
+    case "waveprint": {
+      drawWavePrint(w, h);
+      break;
+    }
+    case "retropink": {
+      drawRetroPink(w, h);
+      break;
+    }
+    case "spectrum": {
+      drawSpectrum(w, h);
       break;
     }
     case "halftone": {
@@ -1380,6 +1395,174 @@ function drawDotMatrix(w, h, inverted) {
   const offset = (t * 80) % (cell * scaleY * 3);
   for (let y = -offset; y < h; y += cell * scaleY * 3) {
     ctx.fillRect(0, y, w, Math.max(1, scaleY));
+  }
+  ctx.restore();
+}
+
+function drawWavePrint(w, h) {
+  const t = performance.now() / 1000;
+  const tw = 220;
+  const th = Math.max(2, Math.round((tw * h) / w));
+  const cell = 6;
+  if (halftone.width !== tw || halftone.height !== th) {
+    halftone.width = tw;
+    halftone.height = th;
+  }
+
+  halftoneCtx.filter = "grayscale(1) contrast(1.42) brightness(1.04)";
+  drawMirrored(halftoneCtx, tw, th);
+  halftoneCtx.filter = "none";
+  const d = halftoneCtx.getImageData(0, 0, tw, th).data;
+  const scaleX = w / tw;
+  const scaleY = h / th;
+  const maxR = Math.max(scaleX, scaleY) * cell * 0.48;
+
+  ctx.fillStyle = "#e9a1bd";
+  ctx.fillRect(0, 0, w, h);
+  for (let y = 0; y < th; y += cell) {
+    const waveX = Math.sin(t * 1.8 + y * 0.1) * scaleX * 2.8;
+    for (let x = 0; x < tw; x += cell) {
+      const sx = Math.min(tw - 1, x + (cell >> 1));
+      const sy = Math.min(th - 1, y + (cell >> 1));
+      const p = (sy * tw + sx) * 4;
+      const lum = (0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2]) / 255;
+      const radius = maxR * clampValue((1 - lum) * 1.16, 0.08, 1);
+      const dx = (x + cell / 2) * scaleX + waveX;
+      const dy = (y + cell / 2) * scaleY + Math.sin(t * 1.4 + x * 0.08) * scaleY * 0.7;
+      ctx.beginPath();
+      ctx.fillStyle = lum < 0.46 ? "#392039" : "#8d416e";
+      ctx.arc(dx, dy, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  ctx.globalAlpha = 0.42;
+  ctx.strokeStyle = "#ffd3e2";
+  ctx.lineWidth = Math.max(1, scaleY * 0.8);
+  for (let y = h * 0.08; y < h; y += h * 0.085) {
+    ctx.beginPath();
+    for (let x = 0; x <= w; x += 16) {
+      const py = y + Math.sin(x * 0.018 + t * 2.2 + y * 0.03) * h * 0.012;
+      if (x === 0) ctx.moveTo(x, py);
+      else ctx.lineTo(x, py);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawRetroPink(w, h) {
+  const t = performance.now() / 1000;
+  const tw = 220;
+  const th = Math.max(2, Math.round((tw * h) / w));
+  const cell = 7;
+  if (halftone.width !== tw || halftone.height !== th) {
+    halftone.width = tw;
+    halftone.height = th;
+  }
+
+  ctx.fillStyle = "#e6a1bf";
+  ctx.fillRect(0, 0, w, h);
+  ctx.save();
+  ctx.globalCompositeOperation = "multiply";
+  ctx.globalAlpha = 0.62;
+  ctx.filter = "grayscale(1) contrast(1.42) brightness(1.12)";
+  drawMirrored(ctx, w, h);
+  ctx.filter = "none";
+  ctx.globalCompositeOperation = "screen";
+  ctx.globalAlpha = 0.48;
+  ctx.fillStyle = "#ff6cab";
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+
+  halftoneCtx.filter = "grayscale(1) contrast(1.5)";
+  drawMirrored(halftoneCtx, tw, th);
+  halftoneCtx.filter = "none";
+  const d = halftoneCtx.getImageData(0, 0, tw, th).data;
+  const scaleX = w / tw;
+  const scaleY = h / th;
+  const maxR = Math.max(scaleX, scaleY) * cell * 0.46;
+  ctx.save();
+  ctx.globalCompositeOperation = "multiply";
+  ctx.globalAlpha = 0.7;
+  for (let y = 0; y < th; y += cell) {
+    for (let x = 0; x < tw; x += cell) {
+      const sx = Math.min(tw - 1, x + (cell >> 1));
+      const sy = Math.min(th - 1, y + (cell >> 1));
+      const p = (sy * tw + sx) * 4;
+      const lum = (0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2]) / 255;
+      const radius = maxR * clampValue((1 - lum) * 1.1, 0.05, 1);
+      ctx.beginPath();
+      ctx.fillStyle = "#551f55";
+      ctx.arc((x + cell / 2) * scaleX, (y + cell / 2) * scaleY, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.globalCompositeOperation = "screen";
+  ctx.globalAlpha = 0.24;
+  ctx.fillStyle = "#ffecf6";
+  for (let y = (t * 34) % 10; y < h; y += 10) ctx.fillRect(0, y, w, 2);
+  ctx.restore();
+}
+
+function drawSpectrum(w, h) {
+  const t = performance.now() / 1000;
+  const tw = 256;
+  const th = Math.max(2, Math.round((tw * h) / w));
+  if (halftone.width !== tw || halftone.height !== th) {
+    halftone.width = tw;
+    halftone.height = th;
+  }
+
+  halftoneCtx.filter = "grayscale(1) contrast(1.5) brightness(0.9)";
+  drawMirrored(halftoneCtx, tw, th);
+  halftoneCtx.filter = "none";
+  const d = halftoneCtx.getImageData(0, 0, tw, th).data;
+  ctx.fillStyle = "#09051b";
+  ctx.fillRect(0, 0, w, h);
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  ctx.globalAlpha = 0.28;
+  ctx.filter = "saturate(2.6) contrast(1.3)";
+  drawMirrored(ctx, w, h);
+  ctx.filter = "none";
+
+  const baseline = h * 0.64;
+  const barStep = Math.max(4, w / 150);
+  for (let x = 0; x < w; x += barStep) {
+    const sx = Math.min(tw - 1, Math.floor((x / w) * tw));
+    let total = 0;
+    for (let y = 0; y < th; y += 4) {
+      const p = (y * tw + sx) * 4;
+      total += (0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2]) / 255;
+    }
+    const lum = total / Math.ceil(th / 4);
+    const wave = 0.72 + Math.sin(t * 3.2 + x * 0.035) * 0.28;
+    const amplitude = h * (0.08 + lum * 0.34) * wave;
+    const hue = (x / w) * 320 + t * 50;
+    ctx.strokeStyle = `hsla(${hue}, 100%, 68%, 0.9)`;
+    ctx.lineWidth = Math.max(2, barStep * 0.42);
+    ctx.beginPath();
+    ctx.moveTo(x, baseline + amplitude * 0.16);
+    ctx.lineTo(x, baseline - amplitude);
+    ctx.stroke();
+  }
+
+  for (let band = 0; band < 4; band++) {
+    ctx.strokeStyle = `hsla(${band * 82 + t * 42}, 100%, 70%, 0.72)`;
+    ctx.lineWidth = Math.max(1.5, w * 0.0022);
+    ctx.beginPath();
+    for (let x = 0; x <= w; x += 12) {
+      const sx = Math.min(tw - 1, Math.floor((x / w) * tw));
+      const p = (Math.floor((band / 4) * th) * tw + sx) * 4;
+      const lum = (0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2]) / 255;
+      const y = h * (0.2 + band * 0.17) + Math.sin(x * 0.018 + t * (2.2 + band * 0.4)) * h * (0.035 + lum * 0.05);
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
   }
   ctx.restore();
 }
