@@ -54,13 +54,38 @@ Root directory: /
 
 连接完成后，每次推送到 `main` 都会自动构建并发布到 Cloudflare Pages。
 
-## 部署到 Vercel
+## 分析统计
 
-当前项目是 vanilla HTML/CSS/JavaScript 静态站点，不需要安装 `@vercel/analytics` 或添加 React 组件。`index.html` 已接入 Vercel Web Analytics 脚本，部署到 Vercel 后访问线上站点即可开始统计。
+当前项目是 vanilla HTML/CSS/JavaScript 静态站点，不需要安装 React 组件。页面已同时接入 Vercel Web Analytics 和 Google Analytics 4，GA4 Measurement ID 配在 `analytics.js` 里的 `GA_MEASUREMENT_ID`。
 
 页面支持中英文：首次访问会根据浏览器地区码和系统时区自动选择语言，也可以用右上角 `中 / EN` 手动切换。
 
-已接入 Vercel Web Analytics 自定义事件，记录语言切换、联系方式点击、素材上传、预览、导出、取景框工具、反向蒙版和特效操作。埋点只记录文件类型、扩展名、大小区间、时长和分辨率等技术属性，不上传文件名或素材内容。
+已接入自定义事件，记录语言切换、联系方式点击、素材上传、预览、导出、取景框工具、反向蒙版和特效操作。埋点只记录文件类型、扩展名、大小区间、时长和分辨率等技术属性，不上传文件名或素材内容。
+
+GA4 事件名：
+
+```text
+file_uploaded
+upload_rejected
+upload_failed
+language_changed
+contact_clicked
+effect_added
+effect_removed
+preview_started
+export_started
+export_completed
+export_failed
+frame_tool_used
+invert_mask_toggled
+live_camera_started
+live_camera_failed
+live_effect_changed
+```
+
+建议在 GA4 后台把 `export_completed` 标记为关键事件，用来判断真正完成导出的用户数。
+
+## 部署到 Vercel
 
 ```text
 Framework preset: Other

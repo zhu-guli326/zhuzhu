@@ -36,6 +36,8 @@ const btnExport = document.getElementById("btn-export");
 const btnFrameFit = document.getElementById("btn-frame-fit");
 const btnFrameReset = document.getElementById("btn-frame-reset");
 const btnAutoTrack = document.getElementById("btn-auto-track");
+const btnLoadDemo = document.getElementById("btn-load-demo");
+const editingControls = document.getElementById("editing-controls");
 const uploadCards = document.querySelectorAll(".upload[data-file-target]");
 const languageButtons = document.querySelectorAll("[data-lang]");
 
@@ -46,6 +48,8 @@ const MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
 const MEDIAPIPE_LOAD_TIMEOUT_MS = 12000;
 const DEFAULT_AUDIO_URL = "./bgm.mp3";
+const DEMO_ORIGINAL_URL = "./demo-original.mp4";
+const DEMO_INSIDE_URL = "./demo-inside.mp4";
 const WRIST = 0;
 const THUMB_TIP = 4;
 const INDEX_TIP = 8;
@@ -54,6 +58,25 @@ const MAX_LOST_FRAMES = 25;
 const JUMP_CONFIRM_FRAMES = 2;
 const ROUNDED_EXPORT_BG = "#f6f8f1";
 const ROUNDED_EXPORT_RADIUS_RATIO = 0.035;
+const fxCanvas = document.createElement("canvas");
+const fxCtx = fxCanvas.getContext("2d", { willReadFrequently: true });
+const pixelCanvas = document.createElement("canvas");
+const pixelCtx = pixelCanvas.getContext("2d");
+const tintCanvas = document.createElement("canvas");
+const tintCtx = tintCanvas.getContext("2d");
+const SHARED_EFFECTS = Array.isArray(window.FRAMELAB_EFFECTS) && window.FRAMELAB_EFFECTS.length
+  ? window.FRAMELAB_EFFECTS
+  : [
+      { id: "glitch", labelKey: "effectGlitch" },
+      { id: "scan", labelKey: "effectScan" },
+      { id: "pulse", labelKey: "effectPulse" },
+      { id: "focus", labelKey: "effectFocus" },
+      { id: "feedback", labelKey: "effectFeedback" },
+      { id: "rgb", labelKey: "effectRgb" },
+      { id: "pixel", labelKey: "effectPixel" },
+      { id: "warp", labelKey: "effectWarp" },
+      { id: "raster", labelKey: "effectRaster" },
+    ];
 
 let origLoaded = false;
 let styLoaded = false;
@@ -64,6 +87,7 @@ let audioName = "";
 let origUrl = "";
 let styUrl = "";
 let audioUrl = "";
+let usingBundledAudio = false;
 let corners = null;
 let presence = 0;
 let frameActive = false;
@@ -78,6 +102,7 @@ let ignoreNextCanvasClick = false;
 let landmarker = null;
 let landmarkerLoading = null;
 let autoTracking = true;
+let frameMode = "auto";
 let lastVideoTime = -1;
 
 const I18N = {
@@ -93,6 +118,8 @@ const I18N = {
     xiaohongshuAria: "打开 JGuli49724 的小红书主页",
     liveMode: "实时摄像头特效",
     liveModeAria: "打开实时摄像头特效",
+    uploadMode: "上传视频",
+    modeTabsAria: "创作模式",
     heroTitle: "手势框合成",
     heroSub: "选原片和风格片，MediaPipe 会自动识别双手取景框，也可以拖动四角微调。",
     origAria: "选择原始视频",
@@ -100,17 +127,22 @@ const I18N = {
     origMeta: "识别手势 · 作为底片",
     origHint: "建议双手取景框清晰；画布按原视频分辨率合成，不压缩画质。",
     styAria: "选择风格视频",
-    styTitle: "风格视频",
-    styMeta: "放入框内",
-    styHint: "最好和原片时长接近。",
+    styTitle: "框内视频",
+    styMeta: "显示在手框内",
+    styHint: "它会显示在双手形成的画面内，时长接近原片效果最好。",
     audioAria: "选择背景音乐",
-    audioTitle: "背景音乐",
-    audioMeta: "已预置",
-    audioHint: "已预置 8月8日.mp3；也可以选择 mp3、m4a 或 wav 替换。",
+    audioTitle: "bgm",
+    audioMeta: "默认音轨",
+    audioHint: "内置 bgm，可替换为 MP3、M4A 或 WAV。",
+    bundledAudioName: "bgm",
     choose: "选择",
     advanced: "高级",
+    advancedSummary: "添加局部特效与时间段",
     effectLabel: "特效片段",
     effectMeta: "叠加在风格视频上",
+    effectType: "特效类型",
+    effectStart: "开始时间",
+    effectEnd: "结束时间",
     effectTypeAria: "特效类型",
     effectStartAria: "特效起点",
     effectEndAria: "特效终点",
@@ -119,26 +151,40 @@ const I18N = {
     effectScan: "霓虹扫描",
     effectPulse: "冲击波",
     effectFocus: "暗场聚焦",
+    effectFeedback: "反馈残影",
+    effectRgb: "RGB 分离",
+    effectPixel: "像素海报",
+    effectWarp: "液态扭曲",
+    effectRaster: "扫描切片",
     setStart: "设为起点",
     setEnd: "设为终点",
     intensity: "强度",
     addEffect: "添加特效",
     effectsEmpty: "尚未添加特效片段",
     preview: "预览",
-    emptyTitle: "先放入两段视频",
-    emptyBody: "上传原始视频和风格视频后，这里会直接显示合成预览。",
+    demoKicker: "示例成片",
+    emptyTitle: "先看效果，再开始创作",
+    emptyBody: "加载两段示例视频，直接体验手势框合成。",
+    loadDemo: "加载示例视频",
     timeline: "播放进度",
     scrubAria: "调整播放进度",
     play: "播放",
     pause: "暂停",
     exportVideo: "导出最终视频",
-    frameToolsAria: "取景框操作",
+    frameToolsAria: "帧定位方式",
+    frameMode: "帧定位方式",
+    frameModeHelp: "选择手框如何出现",
     autoTrack: "自动识别",
     manualFrame: "手动取景框",
     fitFrame: "铺满画面",
-    maskAria: "反向蒙版操作",
-    invertMask: "反向蒙版",
-    footer: "FrameLab · MediaPipe 手势识别 · 原分辨率画布",
+    autoTrackHelp: "自动追踪双手形成的画面",
+    manualFrameHelp: "拖动四角自定义画面位置",
+    fitFrameHelp: "让框内视频充满整个画面",
+    maskAria: "反转内外时段",
+    invertMask: "反转内外",
+    invertHelp: "框外显示框内视频",
+    exportNeedsVideos: "请先上传两段视频",
+    footer: "FrameLab · MediaPipe 手势识别 · 原分辨率画布 · 建议使用最新版 Chrome 或 Edge",
     fileNone: "未选择",
     durationDetail: "原始 {orig} · 风格 {sty}",
     invertOff: "未启用",
@@ -177,6 +223,7 @@ const I18N = {
     exportDone: "已导出 {name}。",
     invalidEffectRange: "特效片段需要一个有效的起止时间。",
     effectAdded: "已添加 {effect} 片段：{start}-{end}。",
+    demoLoaded: "示例视频已加载，可以直接预览或调整。",
   },
   en: {
     metaTitle: "FrameLab Hand-Frame Video Composer",
@@ -190,6 +237,8 @@ const I18N = {
     xiaohongshuAria: "Open JGuli49724 on Xiaohongshu",
     liveMode: "Live Camera Effects",
     liveModeAria: "Open live camera effects",
+    uploadMode: "Upload Video",
+    modeTabsAria: "Creation modes",
     heroTitle: "Hand-Frame Composer",
     heroSub: "Choose an original clip and a style clip. MediaPipe can detect the two-hand frame automatically, and you can fine-tune the four corners.",
     origAria: "Choose original video",
@@ -197,17 +246,22 @@ const I18N = {
     origMeta: "Detects hands · base layer",
     origHint: "Use footage where the two-hand frame is clear. The canvas keeps the original video resolution.",
     styAria: "Choose style video",
-    styTitle: "Style Video",
-    styMeta: "Placed inside the frame",
-    styHint: "A similar duration to the original clip works best.",
+    styTitle: "Inside Video",
+    styMeta: "Shows inside the hand frame",
+    styHint: "This clip appears inside the hand frame. A similar duration works best.",
     audioAria: "Choose background music",
-    audioTitle: "Background Music",
-    audioMeta: "Preset included",
-    audioHint: "Preset: 8月8日.mp3. You can replace it with mp3, m4a, or wav.",
+    audioTitle: "BGM",
+    audioMeta: "Default track",
+    audioHint: "Includes BGM. Replace it with an MP3, M4A, or WAV file.",
+    bundledAudioName: "BGM",
     choose: "Choose",
     advanced: "Advanced",
+    advancedSummary: "Add effects and time ranges",
     effectLabel: "Effect Segment",
     effectMeta: "overlays the style video",
+    effectType: "Effect type",
+    effectStart: "Start time",
+    effectEnd: "End time",
     effectTypeAria: "Effect type",
     effectStartAria: "Effect start time",
     effectEndAria: "Effect end time",
@@ -216,26 +270,40 @@ const I18N = {
     effectScan: "Neon Scan",
     effectPulse: "Shock Pulse",
     effectFocus: "Dark Focus",
+    effectFeedback: "Feedback Echo",
+    effectRgb: "RGB Split",
+    effectPixel: "Pixel Poster",
+    effectWarp: "Liquid Warp",
+    effectRaster: "Raster Slice",
     setStart: "Set Start",
     setEnd: "Set End",
     intensity: "Intensity",
     addEffect: "Add Effect",
     effectsEmpty: "No effect segments yet",
     preview: "Preview",
-    emptyTitle: "Add two videos first",
-    emptyBody: "After you upload the original and style videos, the composite preview appears here.",
+    demoKicker: "Sample output",
+    emptyTitle: "See the result first",
+    emptyBody: "Load two sample clips to try hand-frame compositing right away.",
+    loadDemo: "Load sample videos",
     timeline: "Playback Progress",
     scrubAria: "Adjust playback progress",
     play: "Play",
     pause: "Pause",
     exportVideo: "Export Final Video",
-    frameToolsAria: "Frame tools",
+    frameToolsAria: "Frame placement mode",
+    frameMode: "Frame placement",
+    frameModeHelp: "Choose how the hand frame appears",
     autoTrack: "Auto Track",
     manualFrame: "Manual Frame",
-    fitFrame: "Fill Canvas",
-    maskAria: "Invert mask controls",
-    invertMask: "Invert Mask",
-    footer: "FrameLab · MediaPipe hand tracking · original-resolution canvas",
+    fitFrame: "Fill Screen",
+    autoTrackHelp: "Follow the frame created by both hands",
+    manualFrameHelp: "Drag four corners to place the frame yourself",
+    fitFrameHelp: "Let the inside video fill the whole image",
+    maskAria: "Invert inside and outside range",
+    invertMask: "Invert inside and outside",
+    invertHelp: "Show the inside video outside the frame",
+    exportNeedsVideos: "Upload two videos to export",
+    footer: "FrameLab · MediaPipe hand tracking · original-resolution canvas · Latest Chrome or Edge recommended",
     fileNone: "Not selected",
     durationDetail: "Original {orig} · Style {sty}",
     invertOff: "Off",
@@ -274,63 +342,24 @@ const I18N = {
     exportDone: "Exported {name}.",
     invalidEffectRange: "Effect segment needs a valid start and end time.",
     effectAdded: "Added {effect} segment: {start}-{end}.",
+    demoLoaded: "Sample videos loaded. Preview or adjust them directly.",
   },
 };
 
-const EFFECT_LABEL_KEYS = {
-  glitch: "effectGlitch",
-  scan: "effectScan",
-  pulse: "effectPulse",
-  focus: "effectFocus",
-};
+const EFFECT_LABEL_KEYS = Object.fromEntries(SHARED_EFFECTS.map((item) => [item.id, item.labelKey]));
 
-const CHINESE_REGION_CODES = new Set(["CN", "HK", "MO", "TW"]);
-const CHINESE_TIME_ZONES = new Set([
-  "Asia/Shanghai",
-  "Asia/Chongqing",
-  "Asia/Harbin",
-  "Asia/Urumqi",
-  "Asia/Hong_Kong",
-  "Asia/Macau",
-  "Asia/Taipei",
-]);
+const LANGUAGE_PREFERENCE_KEY = "framelab-lang-v2";
 
 function normalizeLang(value) {
   return String(value || "").toLowerCase().startsWith("en") ? "en" : "zh";
 }
 
-function getLocaleRegion(locale) {
-  try {
-    if (typeof Intl.Locale === "function") {
-      return new Intl.Locale(locale).region || "";
-    }
-  } catch (err) {
-    console.warn("Could not parse locale region", err);
-  }
-  return String(locale || "").split("-").find((part) => /^[A-Za-z]{2}$/.test(part)) || "";
-}
-
-function inferRegionLanguage() {
-  const locales = Array.isArray(navigator.languages) && navigator.languages.length
-    ? navigator.languages
-    : [navigator.language].filter(Boolean);
-  for (const locale of locales) {
-    const language = String(locale || "").split("-")[0].toLowerCase();
-    const region = getLocaleRegion(locale).toUpperCase();
-    if (language === "zh" || CHINESE_REGION_CODES.has(region)) return "zh";
-  }
-
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  if (CHINESE_TIME_ZONES.has(timeZone)) return "zh";
-  return "en";
-}
-
 function getInitialLang() {
   const urlLang = new URLSearchParams(window.location.search).get("lang");
   if (urlLang) return normalizeLang(urlLang);
-  const storedLang = localStorage.getItem("framelab-lang");
+  const storedLang = localStorage.getItem(LANGUAGE_PREFERENCE_KEY);
   if (storedLang) return normalizeLang(storedLang);
-  return inferRegionLanguage();
+  return "zh";
 }
 
 let currentLang = getInitialLang();
@@ -349,12 +378,31 @@ function effectLabel(type) {
   return t(EFFECT_LABEL_KEYS[type] || type);
 }
 
+function populateEffectOptions() {
+  const selected = effectType.value || SHARED_EFFECTS[0]?.id || "glitch";
+  effectType.innerHTML = "";
+  for (const item of SHARED_EFFECTS) {
+    const option = document.createElement("option");
+    option.value = item.id;
+    option.dataset.i18n = item.labelKey;
+    option.textContent = t(item.labelKey);
+    effectType.appendChild(option);
+  }
+  effectType.value = SHARED_EFFECTS.some((item) => item.id === selected)
+    ? selected
+    : SHARED_EFFECTS[0]?.id || "glitch";
+}
+
 function trackEvent(name, data = {}) {
   try {
     const payload = {
       lang: currentLang,
       ...data,
     };
+    if (typeof window.trackAnalyticsEvent === "function") {
+      window.trackAnalyticsEvent(name, payload);
+      return;
+    }
     window.va?.("event", { name, data: payload });
   } catch (err) {
     console.warn("Analytics event skipped", err);
@@ -430,6 +478,36 @@ function traceRoundedRect(x, y, w, h, r) {
   ctx.closePath();
 }
 
+function ensureCanvasSize(targetCanvas, targetCtx, w, h) {
+  if (targetCanvas.width !== w || targetCanvas.height !== h) {
+    targetCanvas.width = w;
+    targetCanvas.height = h;
+  }
+  if (targetCtx) {
+    targetCtx.imageSmoothingEnabled = true;
+    targetCtx.imageSmoothingQuality = "high";
+  }
+}
+
+function snapshotCanvas() {
+  ensureCanvasSize(fxCanvas, fxCtx, canvas.width, canvas.height);
+  fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+  fxCtx.drawImage(canvas, 0, 0);
+  return fxCanvas;
+}
+
+function tintedSource(source, color) {
+  ensureCanvasSize(tintCanvas, tintCtx, canvas.width, canvas.height);
+  tintCtx.clearRect(0, 0, tintCanvas.width, tintCanvas.height);
+  tintCtx.globalCompositeOperation = "source-over";
+  tintCtx.drawImage(source, 0, 0);
+  tintCtx.globalCompositeOperation = "source-atop";
+  tintCtx.fillStyle = color;
+  tintCtx.fillRect(0, 0, tintCanvas.width, tintCanvas.height);
+  tintCtx.globalCompositeOperation = "source-over";
+  return tintCanvas;
+}
+
 function setFileName(el, name) {
   el.textContent = name || t("fileNone");
   el.title = name || "";
@@ -441,12 +519,16 @@ function applyLanguage() {
   setMeta("meta[name='description']", t("metaDescription"));
   setMeta("meta[property='og:title']", t("ogTitle"));
   setMeta("meta[property='og:description']", t("ogDescription"));
+  populateEffectOptions();
 
   document.querySelectorAll("[data-i18n]").forEach((el) => {
     el.textContent = t(el.dataset.i18n);
   });
   document.querySelectorAll("[data-i18n-aria]").forEach((el) => {
     el.setAttribute("aria-label", t(el.dataset.i18nAria));
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+    el.setAttribute("title", t(el.dataset.i18nTitle));
   });
   languageButtons.forEach((button) => {
     const pressed = button.dataset.lang === currentLang;
@@ -456,7 +538,12 @@ function applyLanguage() {
 
   if (!origName) setFileName(origFileName, "");
   if (!styName) setFileName(styFileName, "");
-  if (!audioName) setFileName(audioFileName, "");
+  if (usingBundledAudio) {
+    audioName = t("bundledAudioName");
+    setFileName(audioFileName, audioName);
+  } else if (!audioName) {
+    setFileName(audioFileName, "");
+  }
   updateTimeReadout();
   updateInvertReadout();
   renderEffectList();
@@ -465,7 +552,7 @@ function applyLanguage() {
 
 function setLanguage(lang) {
   currentLang = normalizeLang(lang);
-  localStorage.setItem("framelab-lang", currentLang);
+  localStorage.setItem(LANGUAGE_PREFERENCE_KEY, currentLang);
   applyLanguage();
   trackEvent("Language Changed", { selected_lang: currentLang });
 }
@@ -580,16 +667,27 @@ function setPreviewState(state) {
   previewArea.dataset.state = state;
 }
 
+function refreshFrameModeButtons() {
+  btnAutoTrack.classList.toggle("is-active", frameMode === "auto" && !!landmarker);
+  btnFrameReset.classList.toggle("is-active", frameMode === "manual");
+  btnFrameFit.classList.toggle("is-active", frameMode === "fill");
+}
+
 function refreshControls() {
   const playbackReady = origLoaded && !exporting;
   const compositeReady = origLoaded && styLoaded && !exporting;
   btnCanvasPlay.disabled = !playbackReady;
   btnExport.disabled = !compositeReady;
+  btnExport.title = compositeReady ? t("exportVideo") : t("exportNeedsVideos");
   btnAutoTrack.disabled = !origLoaded;
+  btnFrameReset.disabled = !origLoaded;
+  btnFrameFit.disabled = !origLoaded;
   invertEnabled.disabled = !origLoaded;
   btnSetStart.disabled = !origLoaded;
   btnSetEnd.disabled = !origLoaded;
   scrub.disabled = !origLoaded;
+  editingControls.hidden = !origLoaded;
+  refreshFrameModeButtons();
   previewArea.classList.toggle("ready", origLoaded);
   emptyPreview.hidden = origLoaded;
   setPreviewState(exporting ? "exporting" : previewing ? "playing" : playbackReady ? "ready" : "empty");
@@ -611,7 +709,7 @@ function refreshControls() {
   } else if (styLoaded) {
     status(t("styOnly", { name: styName }));
   } else {
-    status(t("needBoth"));
+    status("");
   }
 }
 
@@ -855,15 +953,18 @@ function updateTracker(hands) {
 
 function resetFrameToDefault(showStatus = true) {
   autoTracking = false;
+  frameMode = "manual";
   corners = defaultQuad();
   presence = 1;
   frameActive = true;
   if (showStatus) status(t("frameReset"));
+  refreshFrameModeButtons();
   renderFrame(Number(scrub.value) || orig.currentTime || 0);
 }
 
 function fitFrameToCanvas() {
   autoTracking = false;
+  frameMode = "fill";
   corners = [
     { x: canvas.width * 0.08, y: canvas.height * 0.08 },
     { x: canvas.width * 0.92, y: canvas.height * 0.08 },
@@ -873,6 +974,7 @@ function fitFrameToCanvas() {
   presence = 1;
   frameActive = true;
   status(t("frameFit"));
+  refreshFrameModeButtons();
   renderFrame(Number(scrub.value) || orig.currentTime || 0);
 }
 
@@ -882,12 +984,14 @@ async function enableAutoTracking() {
     return;
   }
   autoTracking = true;
+  frameMode = "auto";
   resetTracker();
   const mp = await initLandmarker();
   if (mp) {
     status(t("autoTrackingOn"));
   } else {
     autoTracking = false;
+    frameMode = "manual";
     corners = defaultQuad();
     presence = 1;
     frameActive = true;
@@ -980,18 +1084,23 @@ function segmentProgress(seg, t) {
 function drawFlashGlitch(seg, t) {
   const p = segmentProgress(seg, t);
   const level = seg.intensity * (0.35 + 0.65 * Math.sin(p * Math.PI));
+  const source = snapshotCanvas();
   ctx.save();
   ctx.globalCompositeOperation = "screen";
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 14; i++) {
     const y = ((i * 83 + Math.floor(t * 90) * 17) % canvas.height);
-    const h = 8 + ((i * 13) % 24);
-    const xShift = Math.sin(t * 80 + i) * 28 * level;
-    ctx.globalAlpha = 0.16 * level;
-    ctx.drawImage(canvas, 0, y, canvas.width, h, xShift, y, canvas.width, h);
+    const h = 7 + ((i * 17) % 34);
+    const xShift = (Math.sin(t * 80 + i) * 32 + Math.cos(t * 37 + i) * 20) * level;
+    ctx.globalAlpha = 0.2 * level;
+    ctx.drawImage(source, 0, y, canvas.width, h, xShift, y, canvas.width, h);
   }
-  ctx.globalAlpha = 0.12 * level;
+  ctx.globalAlpha = 0.16 * level;
   ctx.fillStyle = Math.floor(t * 18) % 2 ? "#ff6b5e" : "#4bd8ff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.globalCompositeOperation = "lighter";
+  ctx.globalAlpha = 0.22 * level;
+  ctx.drawImage(tintedSource(source, "rgb(255,40,72)"), -18 * level, 0);
+  ctx.drawImage(tintedSource(source, "rgb(45,220,255)"), 18 * level, 0);
   ctx.restore();
 }
 
@@ -1015,6 +1124,12 @@ function drawNeonScan(seg, t) {
   ctx.moveTo(0, y);
   ctx.lineTo(canvas.width, y);
   ctx.stroke();
+  ctx.globalAlpha = 0.18 * seg.intensity;
+  ctx.fillStyle = "#fff";
+  const stripe = Math.max(4, Math.round(canvas.height * 0.008));
+  for (let row = -stripe; row < canvas.height + stripe; row += stripe * 3) {
+    ctx.fillRect(0, row + ((t * 120) % (stripe * 3)), canvas.width, 1.5);
+  }
   ctx.restore();
 }
 
@@ -1060,12 +1175,156 @@ function drawDarkFocus(seg, t) {
   ctx.restore();
 }
 
+function drawFeedbackEcho(seg, t) {
+  const p = segmentProgress(seg, t);
+  const level = seg.intensity * (0.72 + 0.28 * Math.sin(p * Math.PI));
+  const source = snapshotCanvas();
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  ctx.filter = `blur(${1 + 2.5 * level}px) saturate(${120 + 80 * level}%) contrast(${110 + 45 * level}%)`;
+  for (let i = 1; i <= 4; i++) {
+    const drift = i * level;
+    const scale = 1 + 0.016 * i + 0.02 * level;
+    const sw = w * scale;
+    const sh = h * scale;
+    const dx = (w - sw) / 2 + Math.sin(t * 2.4 + i) * w * 0.012 * drift;
+    const dy = (h - sh) / 2 + Math.cos(t * 1.9 + i) * h * 0.014 * drift;
+    ctx.globalAlpha = (0.15 / i) * level;
+    ctx.drawImage(source, dx, dy, sw, sh);
+  }
+  ctx.filter = "none";
+  ctx.globalCompositeOperation = "multiply";
+  ctx.globalAlpha = 0.16 * level;
+  ctx.fillStyle = p > 0.5 ? "#0a1712" : "#f1ffcc";
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+}
+
+function drawRgbSplit(seg, t) {
+  const p = segmentProgress(seg, t);
+  const level = seg.intensity * (0.65 + 0.35 * Math.sin(p * Math.PI));
+  const source = snapshotCanvas();
+  const w = canvas.width;
+  const h = canvas.height;
+  const amp = Math.max(8, w * 0.035) * level;
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  ctx.filter = `saturate(${140 + 90 * level}%) contrast(${110 + 35 * level}%)`;
+  ctx.globalAlpha = 0.38 * level;
+  ctx.drawImage(tintedSource(source, "rgb(255, 40, 70)"), -amp, Math.sin(t * 8) * amp * 0.12, w, h);
+  ctx.drawImage(tintedSource(source, "rgb(35, 255, 190)"), amp * 0.55, Math.cos(t * 7) * amp * 0.1, w, h);
+  ctx.drawImage(tintedSource(source, "rgb(45, 95, 255)"), Math.sin(t * 5) * amp * 0.25, amp * 0.32, w, h);
+  ctx.filter = "none";
+  ctx.globalAlpha = 0.14 * level;
+  ctx.fillStyle = Math.floor(t * 12) % 2 ? "#ff2a46" : "#28e4ff";
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+}
+
+function drawPixelPoster(seg, t) {
+  const p = segmentProgress(seg, t);
+  const level = seg.intensity * (0.8 + 0.2 * Math.sin(p * Math.PI));
+  const source = snapshotCanvas();
+  const w = canvas.width;
+  const h = canvas.height;
+  const block = Math.max(7, Math.round(8 + 34 * level));
+  const pw = Math.max(24, Math.round(w / block));
+  const ph = Math.max(24, Math.round(h / block));
+  ensureCanvasSize(pixelCanvas, pixelCtx, pw, ph);
+  pixelCtx.imageSmoothingEnabled = true;
+  pixelCtx.clearRect(0, 0, pw, ph);
+  pixelCtx.filter = `contrast(${130 + 70 * level}%) saturate(${130 + 80 * level}%)`;
+  pixelCtx.drawImage(source, 0, 0, pw, ph);
+  pixelCtx.filter = "none";
+
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.globalAlpha = 0.55 + 0.35 * level;
+  ctx.filter = `contrast(${115 + 50 * level}%) saturate(${120 + 70 * level}%)`;
+  ctx.drawImage(pixelCanvas, 0, 0, w, h);
+  ctx.filter = "none";
+  ctx.globalCompositeOperation = "overlay";
+  ctx.globalAlpha = 0.18 * level;
+  for (let x = -block; x < w + block; x += block * 2) {
+    ctx.fillStyle = (Math.floor(x / block + t * 12) % 2) ? "#ffffff" : "#0b211a";
+    ctx.fillRect(x, 0, block, h);
+  }
+  ctx.restore();
+}
+
+function drawLiquidWarp(seg, t) {
+  const p = segmentProgress(seg, t);
+  const level = seg.intensity * (0.65 + 0.35 * Math.sin(p * Math.PI));
+  const source = snapshotCanvas();
+  const w = canvas.width;
+  const h = canvas.height;
+  const slices = 44;
+  const sliceH = Math.max(2, Math.ceil(h / slices));
+  const amp = Math.max(12, w * 0.045) * level;
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.filter = `saturate(${115 + 55 * level}%)`;
+  for (let i = 0; i < slices; i++) {
+    const y = i * sliceH;
+    const phase = y * 0.018 + t * 5.2 + p * Math.PI * 2;
+    const shift = Math.sin(phase) * amp + Math.sin(phase * 0.43 - t * 3.7) * amp * 0.45;
+    ctx.drawImage(source, 0, y, w, sliceH + 1, shift, y, w, sliceH + 1);
+  }
+  ctx.filter = "none";
+  ctx.globalCompositeOperation = "screen";
+  ctx.globalAlpha = 0.18 * level;
+  ctx.strokeStyle = "#c7f15b";
+  ctx.lineWidth = Math.max(2, w * 0.002);
+  for (let i = 0; i < 4; i++) {
+    const r = (0.15 + ((p + i * 0.21) % 1) * 0.72) * Math.hypot(w, h);
+    ctx.beginPath();
+    ctx.arc(w / 2, h / 2, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawRasterSlice(seg, t) {
+  const p = segmentProgress(seg, t);
+  const level = seg.intensity * (0.7 + 0.3 * Math.sin(p * Math.PI));
+  const source = snapshotCanvas();
+  const w = canvas.width;
+  const h = canvas.height;
+  const rows = 28;
+  const amp = Math.max(10, w * 0.05) * level;
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  for (let i = 0; i < rows; i++) {
+    const y = Math.floor(((i / rows) * h + t * 90 + i * 17) % h);
+    const sliceH = 4 + ((i * 11) % 32);
+    const gate = Math.sin(t * 9 + i * 1.7) > -0.2 ? 1 : 0.25;
+    const shift = (Math.sin(t * 6.4 + i * 2.1) * amp + Math.cos(i * 5.3) * amp * 0.45) * gate;
+    ctx.globalAlpha = 0.35 + 0.55 * level;
+    ctx.drawImage(source, 0, y, w, sliceH, shift, y, w, sliceH);
+  }
+  ctx.globalCompositeOperation = "screen";
+  ctx.globalAlpha = 0.22 * level;
+  ctx.fillStyle = "#ffffff";
+  const scanY = (p * h + Math.sin(t * 4) * h * 0.06) % h;
+  ctx.fillRect(0, scanY, w, Math.max(2, h * 0.01));
+  ctx.fillStyle = "#28e4ff";
+  ctx.fillRect((Math.sin(t * 2.8) * 0.5 + 0.5) * w, 0, Math.max(3, w * 0.006), h);
+  ctx.restore();
+}
+
 function drawEffectOverlay(t) {
   for (const seg of activeEffectSegments(t)) {
     if (seg.type === "glitch") drawFlashGlitch(seg, t);
     if (seg.type === "scan") drawNeonScan(seg, t);
     if (seg.type === "pulse") drawShockPulse(seg, t);
     if (seg.type === "focus") drawDarkFocus(seg, t);
+    if (seg.type === "feedback") drawFeedbackEcho(seg, t);
+    if (seg.type === "rgb") drawRgbSplit(seg, t);
+    if (seg.type === "pixel") drawPixelPoster(seg, t);
+    if (seg.type === "warp") drawLiquidWarp(seg, t);
+    if (seg.type === "raster") drawRasterSlice(seg, t);
   }
 }
 
@@ -1151,6 +1410,8 @@ canvas.addEventListener("pointerdown", (evt) => {
   ignoreNextCanvasClick = hit >= 0;
   if (hit < 0) return;
   autoTracking = false;
+  frameMode = "manual";
+  refreshFrameModeButtons();
   activeCorner = hit;
   pointerId = evt.pointerId;
   canvas.setPointerCapture(pointerId);
@@ -1240,10 +1501,11 @@ async function handleOriginal(file) {
   invertEnd.value = String(orig.duration || 0);
   effectSegments = [];
   effectStart.value = "0";
-  effectEnd.value = String(Math.min(0.6, orig.duration || 0));
+  effectEnd.value = String(Math.min(1.2, orig.duration || 0));
   renderEffectList();
   origLoaded = true;
   autoTracking = false;
+  frameMode = "manual";
   corners = defaultQuad();
   presence = 1;
   frameActive = true;
@@ -1255,6 +1517,7 @@ async function handleOriginal(file) {
   void initLandmarker().then((mp) => {
     if (!origLoaded || origUrl !== activeOrigUrl) return;
     autoTracking = !!mp;
+    frameMode = mp ? "auto" : "manual";
     lastVideoTime = -1;
     refreshControls();
   });
@@ -1314,6 +1577,7 @@ async function handleAudio(file) {
   }
   if (audioUrl) URL.revokeObjectURL(audioUrl);
   clearAudio();
+  usingBundledAudio = false;
   audioLoaded = false;
   audioName = file.name;
   setFileName(audioFileName, audioName);
@@ -1329,7 +1593,8 @@ async function loadBundledAudio() {
   if (audioLoaded) return;
   clearAudio();
   audioLoaded = false;
-  audioName = "8月8日.mp3";
+  usingBundledAudio = true;
+  audioName = t("bundledAudioName");
   setFileName(audioFileName, audioName);
   status(t("loadingBundledAudio"));
   await new Promise((resolve, reject) => {
@@ -1396,6 +1661,33 @@ audioInput.addEventListener("change", async (e) => {
       kind: "audio",
       reason: "load_error",
     });
+  }
+});
+
+async function fetchDemoFile(url, name) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Could not load ${name}`);
+  const blob = await response.blob();
+  return new File([blob], name, { type: blob.type || "video/mp4" });
+}
+
+btnLoadDemo.addEventListener("click", async () => {
+  if (btnLoadDemo.disabled) return;
+  btnLoadDemo.disabled = true;
+  try {
+    const [demoOriginal, demoInside] = await Promise.all([
+      fetchDemoFile(DEMO_ORIGINAL_URL, "最终原视频.mp4"),
+      fetchDemoFile(DEMO_INSIDE_URL, "动漫.mp4"),
+    ]);
+    await handleOriginal(demoOriginal);
+    await handleStylized(demoInside);
+    status(t("demoLoaded"));
+    trackEvent("Demo Loaded", commonProjectMetrics());
+  } catch (err) {
+    console.error(err);
+    status(t("readFileFail", { name: t("loadDemo"), detail: `: ${err.message || err}` }));
+  } finally {
+    btnLoadDemo.disabled = false;
   }
 });
 
@@ -1684,6 +1976,7 @@ window.addEventListener("pageshow", () => {
   origLoaded = false;
   styLoaded = false;
   audioLoaded = false;
+  usingBundledAudio = false;
   origName = "";
   styName = "";
   audioName = "";
