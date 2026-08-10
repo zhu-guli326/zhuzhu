@@ -3,3 +3,5 @@ screenshots/
 .DS_Store
 Thumbs.db
 .deploy-temp*
+.vercel
+.env*

@@ -227,6 +227,10 @@ document.querySelectorAll("[data-intro-tile]").forEach((tile) => {
 
   tile.addEventListener("click", (event) => {
     event.preventDefault();
+    window.trackSiteEvent?.("Intro Video Started", {
+      label: "hero intro video",
+      section: "home",
+    });
     video.muted = false;
     video.controls = true;
     video.loop = false;
