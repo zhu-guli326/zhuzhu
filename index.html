@@ -9,6 +9,12 @@
   <meta property="og:description" content="上传原始视频和风格视频，自动识别双手取景框，在浏览器本地预览并导出。" />
   <meta property="og:type" content="website" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23c7f15b'/%3E%3Cpath d='M18 17v30h30M23 40l3-17m0 17h17l3-17' fill='none' stroke='%23073b2d' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  <script>
+    window.va = window.va || function () {
+      (window.vaq = window.vaq || []).push(arguments);
+    };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
   <title>FrameLab 手势视频合成工具</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -287,6 +293,9 @@
       font-size: 13px;
       font-weight: 850;
     }
+    .field-label strong {
+      font: inherit;
+    }
     .field-label span {
       color: var(--faint);
       font-size: 12px;
@@ -363,7 +372,7 @@
       min-height: 30px;
     }
     .effect-list:empty::before {
-      content: "尚未添加特效片段";
+      content: attr(data-empty-message);
       color: var(--faint);
       font-size: 12px;
     }
@@ -669,6 +678,80 @@
     .screen { padding-top: max(24px, env(safe-area-inset-top)); }
     .topbar { margin-bottom: 4px; }
     .brand { font-size: 19px; letter-spacing: .01em; }
+    .top-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex: none;
+    }
+    .social-link {
+      width: 42px;
+      height: 42px;
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid rgba(7, 16, 12, .1);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .72);
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 950;
+      text-decoration: none;
+      transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+    }
+    .social-link svg {
+      width: 20px;
+      height: 20px;
+      display: block;
+      fill: currentColor;
+    }
+    .social-link.xiaohongshu {
+      border-color: transparent;
+      background: #ff2442;
+      color: #fff;
+      box-shadow: 0 10px 24px rgba(255, 36, 66, .16);
+    }
+    .social-link.xiaohongshu svg {
+      width: 30px;
+      height: 22px;
+    }
+    .social-link:hover {
+      transform: translateY(-1px);
+      background: #fff;
+      box-shadow: 0 10px 24px rgba(14, 31, 23, .08);
+    }
+    .social-link.xiaohongshu:hover {
+      background: #ff2442;
+      box-shadow: 0 12px 28px rgba(255, 36, 66, .22);
+    }
+    .lang-switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border: 1px solid rgba(7, 16, 12, .1);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .72);
+      padding: 4px;
+    }
+    .lang-switch button {
+      min-width: 42px;
+      min-height: 32px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      padding: 6px 10px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      box-shadow: none;
+    }
+    .lang-switch button:hover:not(:disabled) {
+      transform: none;
+      box-shadow: none;
+    }
+    .lang-switch button[aria-pressed="true"] {
+      background: var(--green);
+      color: #fff;
+    }
     .tagline {
       max-width: 520px;
       margin: 0 0 22px;
@@ -690,6 +773,40 @@
       color: #68746c;
       font-size: 13px;
       line-height: 1.6;
+    }
+    .mode-actions {
+      margin-bottom: 20px;
+    }
+    .live-link {
+      min-height: 48px;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid rgba(7, 16, 12, .1);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--green);
+      padding: 10px 16px 10px 12px;
+      font-size: 13px;
+      font-weight: 900;
+      text-decoration: none;
+      box-shadow: 0 10px 24px rgba(14, 31, 23, .06);
+      transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+    }
+    .live-link:hover {
+      transform: translateY(-1px);
+      border-color: rgba(7, 59, 45, .26);
+      box-shadow: 0 14px 30px rgba(14, 31, 23, .1);
+    }
+    .live-link svg {
+      width: 22px;
+      height: 22px;
+      display: block;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
     .upload-list { gap: 8px; }
     .upload {
@@ -856,6 +973,21 @@
       .frame-tools { grid-template-columns: 1fr; }
       .mask-actions { grid-template-columns: 1fr 1fr; }
     }
+    @media (max-width: 520px) {
+      .topbar {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        row-gap: 12px;
+      }
+      .top-actions {
+        width: 100%;
+        justify-content: flex-start;
+        gap: 8px;
+      }
+      .tagline {
+        margin-top: 4px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -867,87 +999,118 @@
             <span class="brand-mark" aria-hidden="true"></span>
             <span>FrameLab</span>
           </div>
+          <div class="top-actions">
+            <a class="social-link" href="https://x.com/JGuli49724" target="_blank" rel="noopener noreferrer" aria-label="打开 JGuli49724 的 X / Twitter" data-i18n-aria="twitterAria" data-contact-target="x" title="X">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M14.6 10.2 22 2h-3.1l-5.7 6.3L8.6 2H2l7.8 10.5L2 22h3.1l6.1-7.1 5.2 7.1H23l-8.4-11.8Zm-2.2 2.5-1.3-1.8L5.8 4.4h1.6l4.3 5.7 1.3 1.8 5.8 7.7h-1.6l-4.8-6.9Z" />
+              </svg>
+            </a>
+            <a class="social-link xiaohongshu" href="https://www.xiaohongshu.com/user/profile/57b3456c82ec3947f79496e9" target="_blank" rel="noopener noreferrer" aria-label="打开 JGuli49724 的小红书主页" data-i18n-aria="xiaohongshuAria" data-contact-target="xiaohongshu" title="小红书">
+              <svg viewBox="0 0 32 24" aria-hidden="true">
+                <text x="16" y="15.6" text-anchor="middle" font-size="9" font-weight="900" font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif" fill="currentColor">小红书</text>
+              </svg>
+            </a>
+            <a class="social-link" href="mailto:juguli326@gmail.com" aria-label="发送邮件到 juguli326@gmail.com" data-i18n-aria="emailAria" data-contact-target="email" title="Email">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4.8 6.5h14.4c.7 0 1.3.6 1.3 1.3v8.4c0 .7-.6 1.3-1.3 1.3H4.8c-.7 0-1.3-.6-1.3-1.3V7.8c0-.7.6-1.3 1.3-1.3Zm.2 1.8 7 5 7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </a>
+            <div class="lang-switch" aria-label="Language">
+              <button type="button" data-lang="zh" aria-pressed="true" aria-label="切换到中文">中</button>
+              <button type="button" data-lang="en" aria-pressed="false" aria-label="Switch to English">EN</button>
+            </div>
+          </div>
         </header>
-        <p class="tagline">上传两段视频，MediaPipe 自动识别手势框</p>
+        <p class="tagline" data-i18n="tagline">上传两段视频，MediaPipe 自动识别手势框</p>
 
-        <main class="app" aria-label="手势取景合成工具">
+        <main class="app" aria-label="手势取景合成工具" data-i18n-aria="appLabel">
           <section class="panel setup">
-            <h1>手势框合成</h1>
-            <p class="sub">选原片和风格片，MediaPipe 会自动识别双手取景框，也可以拖动四角微调。</p>
+            <h1 data-i18n="heroTitle">手势框合成</h1>
+            <p class="sub" data-i18n="heroSub">选原片和风格片，MediaPipe 会自动识别双手取景框，也可以拖动四角微调。</p>
+            <div class="mode-actions">
+              <a class="live-link" href="./live.html" aria-label="打开实时摄像头特效" data-i18n-aria="liveModeAria">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 8.5a3 3 0 0 1 3-3h7a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-7Z" />
+                  <path d="m17 10 3.5-2v8L17 14" />
+                  <path d="M8.4 10.2h4.2M8.4 13.8h2.8" />
+                </svg>
+                <span data-i18n="liveMode">实时摄像头特效</span>
+              </a>
+            </div>
 
             <div class="upload-list">
-              <div class="upload" data-file-target="orig-file" role="button" tabindex="0" aria-label="选择原始视频">
+              <div class="upload" data-file-target="orig-file" role="button" tabindex="0" aria-label="选择原始视频" data-i18n-aria="origAria">
                 <div class="upload-head">
                   <div class="upload-index">1</div>
                   <div class="upload-title">
-                    <strong>原始视频</strong>
-                    <span>识别手势 · 作为底片</span>
+                    <strong data-i18n="origTitle">原始视频</strong>
+                    <span data-i18n="origMeta">识别手势 · 作为底片</span>
                   </div>
                 </div>
                 <label class="file-picker">
                   <input id="orig-file" type="file" accept="video/*" autocomplete="off" />
-                  <span class="file-action">选择</span>
+                  <span class="file-action" data-i18n="choose">选择</span>
                   <span id="orig-file-name" class="file-name">未选择</span>
                 </label>
-                <div class="hint">建议双手取景框清晰；画布按原视频分辨率合成，不压缩画质。</div>
+                <div class="hint" data-i18n="origHint">建议双手取景框清晰；画布按原视频分辨率合成，不压缩画质。</div>
               </div>
-              <div class="upload" data-file-target="sty-file" role="button" tabindex="0" aria-label="选择风格视频">
+              <div class="upload" data-file-target="sty-file" role="button" tabindex="0" aria-label="选择风格视频" data-i18n-aria="styAria">
                 <div class="upload-head">
                   <div class="upload-index">2</div>
                   <div class="upload-title">
-                    <strong>风格视频</strong>
-                    <span>放入框内</span>
+                    <strong data-i18n="styTitle">风格视频</strong>
+                    <span data-i18n="styMeta">放入框内</span>
                   </div>
                 </div>
                 <label class="file-picker">
                   <input id="sty-file" type="file" accept="video/*" autocomplete="off" />
-                  <span class="file-action">选择</span>
+                  <span class="file-action" data-i18n="choose">选择</span>
                   <span id="sty-file-name" class="file-name">未选择</span>
                 </label>
-                <div class="hint">最好和原片时长接近。</div>
+                <div class="hint" data-i18n="styHint">最好和原片时长接近。</div>
               </div>
-              <div class="upload" data-file-target="audio-file" role="button" tabindex="0" aria-label="选择背景音乐">
+              <div class="upload" data-file-target="audio-file" role="button" tabindex="0" aria-label="选择背景音乐" data-i18n-aria="audioAria">
                 <div class="upload-head">
                   <div class="upload-index">3</div>
                   <div class="upload-title">
-                    <strong>背景音乐</strong>
-                    <span>已预置</span>
+                    <strong data-i18n="audioTitle">背景音乐</strong>
+                    <span data-i18n="audioMeta">已预置</span>
                   </div>
                 </div>
                 <label class="file-picker">
                   <input id="audio-file" type="file" accept="audio/*,.mp3,.m4a,.wav,.aac,.ncm" autocomplete="off" />
-                  <span class="file-action">选择</span>
+                  <span class="file-action" data-i18n="choose">选择</span>
                   <span id="audio-file-name" class="file-name">未选择</span>
                 </label>
-                <div class="hint">已预置 8月8日.mp3；也可以选择 mp3、m4a 或 wav 替换。</div>
+                <div class="hint" data-i18n="audioHint">已预置 8月8日.mp3；也可以选择 mp3、m4a 或 wav 替换。</div>
               </div>
             </div>
 
             <details>
-              <summary>高级</summary>
+              <summary data-i18n="advanced">高级</summary>
               <div class="advanced">
                 <div>
-                  <div class="field-label">特效片段 <span>叠加在风格视频上</span></div>
+                  <div class="field-label"><strong data-i18n="effectLabel">特效片段</strong> <span data-i18n="effectMeta">叠加在风格视频上</span></div>
                   <div class="controls-grid effect-row">
-                    <select id="effect-type" aria-label="特效类型">
-                      <option value="glitch">故障闪切</option>
-                      <option value="scan">霓虹扫描</option>
-                      <option value="pulse">冲击波</option>
-                      <option value="focus">暗场聚焦</option>
+                    <select id="effect-type" aria-label="特效类型" data-i18n-aria="effectTypeAria">
+                      <option value="glitch" data-i18n="effectGlitch">故障闪切</option>
+                      <option value="scan" data-i18n="effectScan">霓虹扫描</option>
+                      <option value="pulse" data-i18n="effectPulse">冲击波</option>
+                      <option value="focus" data-i18n="effectFocus">暗场聚焦</option>
                     </select>
-                    <input id="effect-start" type="number" min="0" step="0.01" value="0" aria-label="特效起点" />
-                    <input id="effect-end" type="number" min="0" step="0.01" value="0.6" aria-label="特效终点" />
+                    <input id="effect-start" type="number" min="0" step="0.01" value="0" aria-label="特效起点" data-i18n-aria="effectStartAria" />
+                    <input id="effect-end" type="number" min="0" step="0.01" value="0.6" aria-label="特效终点" data-i18n-aria="effectEndAria" />
                   </div>
                   <div class="row-actions">
-                    <button id="btn-effect-start" type="button">设为起点</button>
-                    <button id="btn-effect-end" type="button">设为终点</button>
+                    <button id="btn-effect-start" type="button" data-i18n="setStart">设为起点</button>
+                    <button id="btn-effect-end" type="button" data-i18n="setEnd">设为终点</button>
                   </div>
                   <div class="controls-grid effect-row compact">
-                    <span class="mini">强度</span>
-                    <input id="effect-intensity" type="range" min="0.2" max="1" step="0.05" value="0.7" aria-label="特效强度" />
+                    <span class="mini" data-i18n="intensity">强度</span>
+                    <input id="effect-intensity" type="range" min="0.2" max="1" step="0.05" value="0.7" aria-label="特效强度" data-i18n-aria="effectIntensityAria" />
                   </div>
-                  <button id="btn-add-effect" type="button">添加特效</button>
-                  <div id="effect-list" class="effect-list"></div>
+                  <button id="btn-add-effect" type="button" data-i18n="addEffect">添加特效</button>
+                  <div id="effect-list" class="effect-list" data-empty-message="尚未添加特效片段"></div>
                 </div>
               </div>
             </details>
@@ -955,7 +1118,7 @@
 
           <section class="panel preview-panel">
             <div class="panel-topline">
-              <b>预览</b>
+              <b data-i18n="preview">预览</b>
               <span id="export">FrameLab Output</span>
             </div>
             <div id="stage">
@@ -967,15 +1130,19 @@
                   <div>
                     <div class="empty-visual" aria-hidden="true">
                       <svg viewBox="0 0 184 127" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect x="24" y="24" width="118" height="78" rx="14" fill="#173e32" stroke="#FFFFFF" stroke-opacity=".12" stroke-width="2" transform="rotate(-7 83 63)" />
-                        <rect x="42" y="16" width="124" height="88" rx="16" fill="#245344" stroke="#C7F15B" stroke-opacity=".28" stroke-width="2" />
-                        <path d="M59 48V34H75M133 34H149V48M149 72V86H133M75 86H59V72" stroke="#C7F15B" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
-                        <circle cx="104" cy="60" r="18" fill="#C7F15B" />
-                        <path d="M99 50.5L113 60L99 69.5V50.5Z" fill="#073B2D" />
+                        <rect x="18" y="15" width="148" height="97" rx="16" fill="#173E32" stroke="#FFFFFF" stroke-opacity=".12" stroke-width="2" />
+                        <path d="M43 37L139 44L133 91L47 84L43 37Z" fill="#245344" stroke="#C7F15B" stroke-opacity=".88" stroke-width="3" />
+                        <path d="M43 37L139 44L133 91L47 84L43 37Z" stroke="#FFFFFF" stroke-opacity=".22" stroke-width="1.5" stroke-dasharray="4 5" />
+                        <circle cx="43" cy="37" r="6" fill="#C7F15B" stroke="#173E32" stroke-width="3" />
+                        <circle cx="139" cy="44" r="6" fill="#C7F15B" stroke="#173E32" stroke-width="3" />
+                        <circle cx="133" cy="91" r="6" fill="#C7F15B" stroke="#173E32" stroke-width="3" />
+                        <circle cx="47" cy="84" r="6" fill="#C7F15B" stroke="#173E32" stroke-width="3" />
+                        <circle cx="92" cy="64" r="17" fill="#C7F15B" />
+                        <path d="M87 54L103 64L87 74V54Z" fill="#073B2D" />
                       </svg>
                     </div>
-                    <b>先放入两段视频</b>
-                    <p>上传原始视频和风格视频后，这里会直接显示合成预览。</p>
+                    <b data-i18n="emptyTitle">先放入两段视频</b>
+                    <p data-i18n="emptyBody">上传原始视频和风格视频后，这里会直接显示合成预览。</p>
                   </div>
                 </div>
                 <canvas id="canvas"></canvas>
@@ -986,36 +1153,36 @@
               </div>
               <div class="timeline" id="timeline">
                 <div class="timeline-head">
-                  <span>播放进度</span>
+                  <span data-i18n="timeline">播放进度</span>
                   <span id="time-readout">00:00.00 / 00:00.00</span>
                 </div>
-                <input id="scrub" type="range" min="0" max="0" step="0.01" value="0" disabled aria-label="调整播放进度" />
+                <input id="scrub" type="range" min="0" max="0" step="0.01" value="0" disabled aria-label="调整播放进度" data-i18n-aria="scrubAria" />
               </div>
               <div id="controls">
-                <button id="btn-play" disabled>播放</button>
-                <button id="btn-pause" disabled>暂停</button>
+                <button id="btn-play" disabled data-i18n="play">播放</button>
+                <button id="btn-pause" disabled data-i18n="pause">暂停</button>
                 <button id="btn-export" class="primary" disabled>
                   <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M12 3v12" />
                     <path d="m7 10 5 5 5-5" />
                     <path d="M5 21h14" />
                   </svg>
-                  <span>导出最终视频</span>
+                  <span data-i18n="exportVideo">导出最终视频</span>
                 </button>
               </div>
-              <div class="frame-tools" aria-label="取景框操作">
-                <button id="btn-auto-track" type="button" disabled>自动识别</button>
-                <button id="btn-frame-reset" type="button">手动取景框</button>
-                <button id="btn-frame-fit" type="button">铺满画面</button>
+              <div class="frame-tools" aria-label="取景框操作" data-i18n-aria="frameToolsAria">
+                <button id="btn-auto-track" type="button" disabled data-i18n="autoTrack">自动识别</button>
+                <button id="btn-frame-reset" type="button" data-i18n="manualFrame">手动取景框</button>
+                <button id="btn-frame-fit" type="button" data-i18n="fitFrame">铺满画面</button>
               </div>
-              <div class="mask-control" aria-label="反向蒙版操作">
+              <div class="mask-control" aria-label="反向蒙版操作" data-i18n-aria="maskAria">
                 <div class="mask-head">
-                  <label class="mask-toggle"><input id="invert-enabled" type="checkbox" disabled /> 反向蒙版</label>
+                  <label class="mask-toggle"><input id="invert-enabled" type="checkbox" disabled /> <span data-i18n="invertMask">反向蒙版</span></label>
                   <span id="invert-readout">未启用</span>
                 </div>
                 <div class="mask-actions">
-                  <button id="btn-set-start" type="button" disabled>设为起点</button>
-                  <button id="btn-set-end" type="button" disabled>设为终点</button>
+                  <button id="btn-set-start" type="button" disabled data-i18n="setStart">设为起点</button>
+                  <button id="btn-set-end" type="button" disabled data-i18n="setEnd">设为终点</button>
                 </div>
                 <input id="invert-start" type="hidden" value="0" />
                 <input id="invert-end" type="hidden" value="0" />
@@ -1025,7 +1192,7 @@
           </section>
         </main>
 
-        <footer>FrameLab · MediaPipe 手势识别 · 原分辨率画布</footer>
+        <footer data-i18n="footer">FrameLab · MediaPipe 手势识别 · 原分辨率画布</footer>
       </div>
     </div>
   </div>
