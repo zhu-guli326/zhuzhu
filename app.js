@@ -355,6 +355,10 @@ function trackEvent(name, data = {}) {
       lang: currentLang,
       ...data,
     };
+    if (typeof window.trackAnalyticsEvent === "function") {
+      window.trackAnalyticsEvent(name, payload);
+      return;
+    }
     window.va?.("event", { name, data: payload });
   } catch (err) {
     console.warn("Analytics event skipped", err);

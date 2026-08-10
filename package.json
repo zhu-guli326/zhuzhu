@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "mkdir -p dist && cp index.html live.html app.js effects.js framelab-icon.svg bgm.mp3 dist/",
+    "build": "mkdir -p dist && cp index.html live.html app.js effects.js analytics.js framelab-icon.svg bgm.mp3 dist/",
     "check": "node --check app.js"
   }
 }

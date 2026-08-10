@@ -11,6 +11,7 @@
     };
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
+  <script src="./analytics.js"></script>
   <title>FrameLab 实时摄像头特效</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -235,14 +236,16 @@ const toolbar = document.getElementById("toolbar");
 
 function trackEvent(name, data = {}) {
   try {
-    window.va?.("event", {
-      name,
-      data: {
-        mode: "live_camera",
-        demo: DEMO,
-        ...data,
-      },
-    });
+    const payload = {
+      mode: "live_camera",
+      demo: DEMO,
+      ...data,
+    };
+    if (typeof window.trackAnalyticsEvent === "function") {
+      window.trackAnalyticsEvent(name, payload);
+      return;
+    }
+    window.va?.("event", { name, data: payload });
   } catch (err) {
     console.warn("Analytics event skipped", err);
   }
