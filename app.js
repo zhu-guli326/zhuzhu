@@ -1661,6 +1661,10 @@ btnLoadDemo.addEventListener("click", async () => {
     ]);
     await handleOriginal(demoOriginal);
     await handleStylized(demoInside);
+    // The demo button is the user's explicit gesture, so start the preview
+    // immediately after both clips are ready.
+    trackEvent("Preview Started", { ...commonProjectMetrics(), source: "demo" });
+    playThrough();
     status(t("demoLoaded"));
     trackEvent("Demo Loaded", commonProjectMetrics());
   } catch (err) {
