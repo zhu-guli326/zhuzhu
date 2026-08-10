@@ -1104,39 +1104,30 @@
     body.live-drawer-open { overflow: hidden; }
 
     .live-drawer {
-      position: fixed;
+      position: absolute;
       inset: 0;
       z-index: 50;
       visibility: hidden;
       pointer-events: none;
+      overflow: hidden;
+      background: #0a0a0d;
     }
     .live-drawer.is-open {
       visibility: visible;
       pointer-events: auto;
     }
     .live-drawer-backdrop {
-      position: absolute;
-      inset: 0;
-      background: rgba(8, 17, 13, .28);
-      opacity: 0;
-      transition: opacity .22s ease;
+      display: none;
     }
-    .live-drawer.is-open .live-drawer-backdrop { opacity: 1; }
     .live-drawer-panel {
-      position: absolute;
-      top: 0;
-      right: 0;
+      position: relative;
       display: grid;
-      width: min(620px, 100vw);
+      width: 100%;
       height: 100%;
       grid-template-rows: auto minmax(0, 1fr);
       overflow: hidden;
       background: #0a0a0d;
-      box-shadow: -18px 0 52px rgba(8, 17, 13, .22);
-      transform: translateX(100%);
-      transition: transform .26s cubic-bezier(.22, .8, .24, 1);
     }
-    .live-drawer.is-open .live-drawer-panel { transform: translateX(0); }
     .live-drawer-panel:fullscreen {
       width: 100vw;
       height: 100vh;
@@ -1382,6 +1373,27 @@
                     <path d="M8 5v14l11-7z" />
                   </svg>
                 </button>
+                <div id="live-drawer" class="live-drawer" aria-hidden="true">
+                  <div class="live-drawer-backdrop" data-live-close></div>
+                  <aside class="live-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="live-drawer-title">
+                    <header class="live-drawer-head">
+                      <div>
+                        <div class="live-drawer-kicker">FrameLab Live</div>
+                        <h2 id="live-drawer-title" data-i18n="liveDrawerTitle">实时摄像头特效</h2>
+                      </div>
+                      <div class="live-drawer-actions">
+                        <button id="btn-live-fullscreen" type="button" data-i18n-title="fullscreen" data-i18n-aria="fullscreen">
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M21 16v5h-5" /></svg>
+                          <span id="live-fullscreen-label" data-i18n="fullscreen">全屏</span>
+                        </button>
+                        <button id="btn-live-close" type="button" data-i18n-title="closeLive" data-i18n-aria="closeLive" aria-label="关闭实时画面" title="关闭实时画面">
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+                        </button>
+                      </div>
+                    </header>
+                    <iframe id="live-drawer-frame" class="live-drawer-frame" title="实时摄像头特效画面" data-i18n-title="liveFrameTitle" allow="camera; microphone; fullscreen"></iframe>
+                  </aside>
+                </div>
               </div>
               <div id="editing-controls">
               <div class="timeline" id="timeline">
@@ -1433,28 +1445,6 @@
         <footer data-i18n="footer">FrameLab · MediaPipe 手势识别 · 原分辨率画布</footer>
       </div>
     </div>
-  </div>
-
-  <div id="live-drawer" class="live-drawer" aria-hidden="true">
-    <div class="live-drawer-backdrop" data-live-close></div>
-    <aside class="live-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="live-drawer-title">
-      <header class="live-drawer-head">
-        <div>
-          <div class="live-drawer-kicker">FrameLab Live</div>
-          <h2 id="live-drawer-title" data-i18n="liveDrawerTitle">实时摄像头特效</h2>
-        </div>
-        <div class="live-drawer-actions">
-          <button id="btn-live-fullscreen" type="button" data-i18n-title="fullscreen" data-i18n-aria="fullscreen">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M21 16v5h-5" /></svg>
-            <span id="live-fullscreen-label" data-i18n="fullscreen">全屏</span>
-          </button>
-          <button id="btn-live-close" type="button" data-i18n-title="closeLive" data-i18n-aria="closeLive" aria-label="关闭实时画面" title="关闭实时画面">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
-          </button>
-        </div>
-      </header>
-      <iframe id="live-drawer-frame" class="live-drawer-frame" title="实时摄像头特效画面" data-i18n-title="liveFrameTitle" allow="camera; microphone; fullscreen"></iframe>
-    </aside>
   </div>
 
   <script src="./effects.js"></script>
