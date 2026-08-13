@@ -60,6 +60,8 @@ const MEDIAPIPE_LOAD_TIMEOUT_MS = 12000;
 const DEFAULT_AUDIO_URL = "./bgm.mp3";
 const DEMO_ORIGINAL_URL = "./demo-original.mp4";
 const DEMO_INSIDE_URL = "./demo-inside.mp4";
+const DEFAULT_INVERT_START = 5;
+const DEFAULT_INVERT_END = 10;
 const MAX_LOST_FRAMES = 25;
 const JUMP_CONFIRM_FRAMES = 2;
 const ROUNDED_EXPORT_BG = "#f6f8f1";
@@ -589,6 +591,32 @@ function updateLiveFullscreenControl() {
   }
 }
 
+function sendLiveCameraStreamToFrame() {
+  if (!liveDrawerFrame || !liveCameraStream?.active) return false;
+  const receiver = liveDrawerFrame.contentWindow?.receiveLiveCameraStream;
+  if (typeof receiver !== "function") return false;
+  receiver(liveCameraStream);
+  return true;
+}
+
+function queueLiveCameraStreamSend() {
+  if (sendLiveCameraStreamToFrame()) return;
+
+  [80, 250, 750, 1500].forEach((delay) => {
+    window.setTimeout(() => {
+      if (!liveDrawer?.classList.contains("is-open")) return;
+      sendLiveCameraStreamToFrame();
+    }, delay);
+  });
+}
+
+window.addEventListener("message", (event) => {
+  if (!liveDrawerFrame || event.source !== liveDrawerFrame.contentWindow) return;
+  if (event.origin !== location.origin && event.origin !== "null") return;
+  if (event.data?.type !== "framelab-live-ready") return;
+  queueLiveCameraStreamSend();
+});
+
 async function openLiveDrawer() {
   if (!liveDrawer || !liveDrawerFrame) return;
   liveDrawer.classList.add("is-open");
@@ -613,9 +641,7 @@ async function openLiveDrawer() {
       liveCameraStream = null;
       return;
     }
-    liveDrawerFrame.addEventListener("load", () => {
-      liveDrawerFrame.contentWindow?.receiveLiveCameraStream?.(liveCameraStream);
-    }, { once: true });
+    liveDrawerFrame.addEventListener("load", queueLiveCameraStreamSend, { once: true });
     liveDrawerFrame.src = "./live.html?embedded=1";
   } catch (err) {
     console.warn("Live camera permission skipped", err);
@@ -705,6 +731,16 @@ function getDuration() {
 
 function getStylizedDuration() {
   return Number.isFinite(sty.duration) ? sty.duration : 0;
+}
+
+function setDefaultInvertRange(duration) {
+  const parsedDuration = Number(duration);
+  const videoDuration = Number.isFinite(parsedDuration) ? Math.max(0, parsedDuration) : 0;
+  const end = Math.min(DEFAULT_INVERT_END, videoDuration);
+  const enabled = videoDuration > DEFAULT_INVERT_START && end > DEFAULT_INVERT_START;
+  invertEnabled.checked = enabled;
+  invertStart.value = enabled ? String(DEFAULT_INVERT_START) : "0";
+  invertEnd.value = enabled ? String(end) : String(videoDuration);
 }
 
 function updateTimeReadout() {
@@ -1091,6 +1127,18 @@ function isInvertedAtTime(t) {
   return !!range && t >= range.start && t <= range.end;
 }
 
+function isPictureInPictureAtTime(t) {
+  const duration = getDuration();
+  if (!styLoaded || !duration) return false;
+  return t >= Math.max(0, duration - 2) && t < Math.max(0, duration - 1);
+}
+
+function isFullscreenStylizedAtTime(t) {
+  const duration = getDuration();
+  if (!styLoaded || !duration) return false;
+  return t >= Math.max(0, duration - 1) && t <= duration;
+}
+
 function quadPath(q) {
   ctx.beginPath();
   ctx.moveTo(q[0].x, q[0].y);
@@ -1107,6 +1155,43 @@ function drawWindow(q, sourceVideo) {
   ctx.drawImage(sourceVideo, 0, 0, canvas.width, canvas.height);
   ctx.restore();
   ctx.globalAlpha = 1;
+}
+
+function drawPictureInPictureInset() {
+  if (!origLoaded || orig.readyState < 2) return;
+  const w = canvas.width;
+  const h = canvas.height;
+  const margin = Math.max(12, Math.round(Math.min(w, h) * 0.045));
+  const aspect = orig.videoWidth > 0 && orig.videoHeight > 0
+    ? orig.videoWidth / orig.videoHeight
+    : w / Math.max(h, 1);
+  let insetW = Math.min(w * 0.36, 360);
+  let insetH = insetW / Math.max(aspect, 0.1);
+  if (insetH > h * 0.38) {
+    insetH = h * 0.38;
+    insetW = insetH * aspect;
+  }
+  insetW = Math.min(insetW, Math.max(1, w - margin * 2));
+  insetH = Math.min(insetH, Math.max(1, h - margin * 2));
+  const x = w - insetW - margin;
+  const y = h - insetH - margin;
+  const insetRadius = Math.max(10, Math.round(Math.min(insetW, insetH) * 0.08));
+
+  ctx.save();
+  ctx.shadowColor = "rgba(0, 0, 0, .38)";
+  ctx.shadowBlur = Math.max(12, Math.round(Math.min(w, h) * 0.035));
+  ctx.shadowOffsetY = Math.max(4, Math.round(Math.min(w, h) * 0.012));
+  traceRoundedRect(x, y, insetW, insetH, insetRadius);
+  ctx.clip();
+  ctx.drawImage(orig, x, y, insetW, insetH);
+  ctx.restore();
+
+  ctx.save();
+  traceRoundedRect(x, y, insetW, insetH, insetRadius);
+  ctx.lineWidth = Math.max(2, Math.round(Math.min(w, h) * 0.006));
+  ctx.strokeStyle = "rgba(255, 255, 255, .88)";
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawOutline(q, t) {
@@ -1394,8 +1479,10 @@ function renderFrame(t) {
   ctx.fillRect(0, 0, w, h);
   traceRoundedRect(0, 0, w, h, radius);
   ctx.clip();
-  const inverted = isInvertedAtTime(t);
-  const baseVideo = inverted ? sty : orig;
+  const pictureInPicture = isPictureInPictureAtTime(t);
+  const fullscreenStylized = isFullscreenStylizedAtTime(t);
+  const inverted = !pictureInPicture && !fullscreenStylized && isInvertedAtTime(t);
+  const baseVideo = pictureInPicture || fullscreenStylized ? sty : inverted ? sty : orig;
   const overlayVideo = inverted ? orig : sty;
   if (baseVideo && baseVideo.readyState >= 2) {
     ctx.drawImage(baseVideo, 0, 0, w, h);
@@ -1415,7 +1502,9 @@ function renderFrame(t) {
     sty.currentTime = orig.currentTime;
   }
 
-  if (corners && presence > 0.01 && styLoaded) {
+  if (pictureInPicture) {
+    drawPictureInPictureInset();
+  } else if (!fullscreenStylized && corners && presence > 0.01 && styLoaded) {
     drawWindow(corners, overlayVideo);
     drawOutline(corners, t);
   }
@@ -1488,6 +1577,7 @@ function releaseCorner() {
 canvas.addEventListener("pointerup", releaseCorner);
 canvas.addEventListener("pointercancel", releaseCorner);
 previewArea.addEventListener("click", (evt) => {
+  if (evt.target.closest("#live-drawer")) return;
   if (evt.target.closest(".duration-badge")) return;
   if (ignoreNextCanvasClick) {
     ignoreNextCanvasClick = false;
@@ -1548,31 +1638,33 @@ async function handleOriginal(file) {
   scrub.max = String(orig.duration || 0);
   trackFileUploaded("original", file, orig);
   scrub.value = "0";
-  invertEnabled.checked = false;
-  invertStart.value = "0";
-  invertEnd.value = String(orig.duration || 0);
+  setDefaultInvertRange(orig.duration);
   effectSegments = [];
   effectStart.value = "0";
   effectEnd.value = String(Math.min(1.2, orig.duration || 0));
   renderEffectList();
   origLoaded = true;
-  autoTracking = false;
-  frameMode = "manual";
-  corners = defaultQuad();
-  presence = 1;
-  frameActive = true;
   syncTimelineBounds();
   refreshControls();
-  await showUploadPreview(0);
 
   const activeOrigUrl = origUrl;
-  void initLandmarker().then((mp) => {
-    if (!origLoaded || origUrl !== activeOrigUrl) return;
-    autoTracking = !!mp;
-    frameMode = mp ? "auto" : "manual";
-    lastVideoTime = -1;
-    refreshControls();
-  });
+  const mp = await initLandmarker();
+  if (!origLoaded || origUrl !== activeOrigUrl) return;
+  autoTracking = !!mp;
+  frameMode = mp ? "auto" : "manual";
+  resetTracker();
+  if (mp) {
+    corners = null;
+    presence = 0;
+    frameActive = false;
+  } else {
+    corners = defaultQuad();
+    presence = 1;
+    frameActive = true;
+  }
+  lastVideoTime = -1;
+  refreshControls();
+  await showUploadPreview(0);
 }
 
 async function handleStylized(file) {
