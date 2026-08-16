@@ -9,4 +9,14 @@
     { id: "warp", labelKey: "effectWarp", zh: "液态扭曲", en: "Liquid Warp" },
     { id: "raster", labelKey: "effectRaster", zh: "扫描切片", en: "Raster Slice" },
   ];
+
+  // Preview-only visual fix. Keep the compositing/export canvas untouched and
+  // apply a single browser clipping layer to remove mismatched corner pixels.
+  if (!document.querySelector('link[data-framelab-preview-fix]')) {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "./preview-frame.css";
+    link.dataset.framelabPreviewFix = "true";
+    document.head.appendChild(link);
+  }
 })();
