@@ -1,0 +1,83 @@
+/* FrameLab preview media shell fix.
+ * Keep one visual outer frame and one media clipping radius so canvas pixels,
+ * demo video, scrim and overlays cannot expose mismatched corner layers.
+ */
+
+.preview-panel .canvas-wrap {
+  padding: 10px !important;
+  border: 0 !important;
+  border-radius: 28px !important;
+  overflow: hidden !important;
+  background: linear-gradient(135deg, #0b211a 0%, #071713 46%, #071d2d 100%) !important;
+  box-shadow:
+    0 20px 44px rgba(14, 31, 23, .14),
+    inset 0 1px 0 rgba(255, 255, 255, .08) !important;
+  isolation: isolate;
+}
+
+/* The rendered canvas may contain its own export background outside the
+ * composited rounded frame. CSS clipping removes those pixels in preview,
+ * while leaving the export/render pipeline untouched. */
+.preview-panel .canvas-wrap > #canvas {
+  border-radius: 20px !important;
+  clip-path: inset(0 round 20px);
+  overflow: hidden;
+  background: #020604 !important;
+  transform: translateZ(0);
+}
+
+/* The sample video uses exactly the same inner geometry as the live canvas. */
+.preview-panel .canvas-wrap .empty-preview {
+  inset: 10px !important;
+  border-radius: 20px !important;
+  overflow: hidden !important;
+  background: #020604 !important;
+}
+
+.preview-panel .canvas-wrap .demo-video {
+  inset: 0;
+  border-radius: inherit;
+  clip-path: inset(0 round 20px);
+  transform: scale(1.002);
+  background: #020604;
+}
+
+/* Previously the scrim covered the entire outer shell, including the frame
+ * padding. Limit it to the actual media rectangle so its dark curved edge
+ * cannot create a second bottom corner. */
+.preview-panel .canvas-wrap .preview-scrim {
+  left: 10px !important;
+  right: 10px !important;
+  bottom: 10px !important;
+  border-radius: 0 0 20px 20px;
+  overflow: hidden;
+}
+
+.preview-panel .canvas-wrap::before,
+.preview-panel .canvas-wrap::after {
+  content: none !important;
+}
+
+@media (max-width: 420px) {
+  .preview-panel .canvas-wrap {
+    padding: 7px !important;
+    border-radius: 22px !important;
+  }
+
+  .preview-panel .canvas-wrap > #canvas,
+  .preview-panel .canvas-wrap .empty-preview {
+    border-radius: 16px !important;
+    clip-path: inset(0 round 16px);
+  }
+
+  .preview-panel .canvas-wrap .empty-preview {
+    inset: 7px !important;
+  }
+
+  .preview-panel .canvas-wrap .preview-scrim {
+    left: 7px !important;
+    right: 7px !important;
+    bottom: 7px !important;
+    border-radius: 0 0 16px 16px;
+  }
+}
