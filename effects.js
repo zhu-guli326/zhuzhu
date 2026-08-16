@@ -28,7 +28,7 @@
     document.head.appendChild(script);
   }
 
-  loadStylesheet("./preview-frame.css?v=2", "data-framelab-preview-fix");
+  loadStylesheet("./preview-frame.css?v=3", "data-framelab-preview-fix");
 
   // Upload composer: show a decodable first frame immediately while app.js
   // keeps loading MediaPipe in the background and later enables auto tracking.
