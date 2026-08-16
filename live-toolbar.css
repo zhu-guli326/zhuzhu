@@ -1,0 +1,131 @@
+/* Compact live-camera controls: keep the preview visible and move effects into a dropdown. */
+#toolbar {
+  left: 50% !important;
+  bottom: 18px !important;
+  width: auto !important;
+  max-width: calc(100vw - 32px) !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  padding: 7px !important;
+  overflow: visible !important;
+  border-radius: 16px !important;
+  background: rgba(18, 18, 22, .72) !important;
+  border: 1px solid rgba(255, 255, 255, .13) !important;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, .22) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+}
+
+#toolbar .toolbar-effect-source {
+  display: none !important;
+}
+
+#toolbar .effect-select-wrap {
+  position: relative;
+  display: block;
+  min-width: 220px;
+  max-width: min(330px, calc(100vw - 158px));
+}
+
+#toolbar .effect-select-wrap::after {
+  content: "⌄";
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  transform: translateY(-58%);
+  color: rgba(255, 255, 255, .68);
+  font-size: 18px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+#toolbar .effect-select-label {
+  position: absolute;
+  z-index: 1;
+  left: 13px;
+  top: 6px;
+  color: rgba(255, 255, 255, .46);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+#toolbar #effect-select {
+  width: 100%;
+  min-width: 0;
+  height: 46px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 11px;
+  outline: none;
+  background: rgba(255, 255, 255, .09);
+  color: #fff;
+  padding: 15px 42px 4px 13px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+#toolbar #effect-select:hover {
+  background: rgba(255, 255, 255, .13);
+}
+
+#toolbar #effect-select:focus-visible {
+  border-color: rgba(255, 255, 255, .58);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .12);
+}
+
+#toolbar #effect-select option {
+  background: #1b1b20;
+  color: #fff;
+}
+
+#toolbar button.record-button {
+  min-width: 112px !important;
+  min-height: 46px !important;
+  padding: 8px 12px !important;
+  border-radius: 11px !important;
+}
+
+@media (max-width: 560px) {
+  #toolbar {
+    bottom: 10px !important;
+    width: calc(100vw - 20px) !important;
+    max-width: none !important;
+    gap: 6px !important;
+    padding: 6px !important;
+  }
+
+  #toolbar .effect-select-wrap {
+    min-width: 0;
+    max-width: none;
+    flex: 1 1 auto;
+  }
+
+  #toolbar #effect-select {
+    height: 44px;
+    font-size: 12px;
+    padding-right: 34px;
+  }
+
+  #toolbar button.record-button {
+    min-width: 96px !important;
+    min-height: 44px !important;
+    padding: 7px 10px !important;
+  }
+
+  #toolbar .record-time {
+    display: none;
+  }
+
+  #hint {
+    bottom: 72px !important;
+  }
+}
