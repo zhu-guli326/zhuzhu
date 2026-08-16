@@ -10,13 +10,28 @@
     { id: "raster", labelKey: "effectRaster", zh: "扫描切片", en: "Raster Slice" },
   ];
 
-  // Preview-only visual fix. Keep the compositing/export canvas untouched and
-  // apply a single browser clipping layer to remove mismatched corner pixels.
-  if (!document.querySelector('link[data-framelab-preview-fix]')) {
+  function loadStylesheet(href, marker) {
+    if (document.querySelector(`link[${marker}]`)) return;
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = "./preview-frame.css";
-    link.dataset.framelabPreviewFix = "true";
+    link.href = href;
+    link.setAttribute(marker, "true");
     document.head.appendChild(link);
+  }
+
+  loadStylesheet("./preview-frame.css?v=2", "data-framelab-preview-fix");
+
+  // live.html already has #toolbar in the DOM before effects.js executes.
+  // Convert the large button matrix into a compact dropdown without touching
+  // the existing effect engine, recording flow, analytics, or keyboard shortcuts.
+  if (document.getElementById("toolbar")) {
+    loadStylesheet("./live-toolbar.css?v=1", "data-framelab-live-toolbar");
+    if (!document.querySelector("script[data-framelab-live-toolbar]")) {
+      const script = document.createElement("script");
+      script.src = "./live-toolbar.js?v=1";
+      script.defer = true;
+      script.dataset.framelabLiveToolbar = "true";
+      document.head.appendChild(script);
+    }
   }
 })();
