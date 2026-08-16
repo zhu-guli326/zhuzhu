@@ -40,7 +40,7 @@
   // Convert the large button matrix into a compact dropdown without touching
   // the existing effect engine, recording flow, analytics, or keyboard shortcuts.
   if (document.getElementById("toolbar")) {
-    loadStylesheet("./live-toolbar.css?v=1", "data-framelab-live-toolbar");
+    loadStylesheet("./live-toolbar.css?v=2", "data-framelab-live-toolbar");
     loadScript("./live-toolbar.js?v=1", "data-framelab-live-toolbar");
   }
 })();
