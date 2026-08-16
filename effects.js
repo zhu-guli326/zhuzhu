@@ -19,19 +19,28 @@
     document.head.appendChild(link);
   }
 
+  function loadScript(src, marker) {
+    if (document.querySelector(`script[${marker}]`)) return;
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = false;
+    script.setAttribute(marker, "true");
+    document.head.appendChild(script);
+  }
+
   loadStylesheet("./preview-frame.css?v=2", "data-framelab-preview-fix");
+
+  // Upload composer: show a decodable first frame immediately while app.js
+  // keeps loading MediaPipe in the background and later enables auto tracking.
+  if (document.getElementById("orig-file") && document.getElementById("preview-area")) {
+    loadScript("./progressive-preview.js?v=1", "data-framelab-progressive-preview");
+  }
 
   // live.html already has #toolbar in the DOM before effects.js executes.
   // Convert the large button matrix into a compact dropdown without touching
   // the existing effect engine, recording flow, analytics, or keyboard shortcuts.
   if (document.getElementById("toolbar")) {
     loadStylesheet("./live-toolbar.css?v=1", "data-framelab-live-toolbar");
-    if (!document.querySelector("script[data-framelab-live-toolbar]")) {
-      const script = document.createElement("script");
-      script.src = "./live-toolbar.js?v=1";
-      script.defer = true;
-      script.dataset.framelabLiveToolbar = "true";
-      document.head.appendChild(script);
-    }
+    loadScript("./live-toolbar.js?v=1", "data-framelab-live-toolbar");
   }
 })();
