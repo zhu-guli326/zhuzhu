@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "mkdir -p dist && cp index.html live.html app.js gesture-frame.mjs effects.js analytics.js preview-frame.css framelab-icon.svg bgm.mp3 demo-original.mp4 demo-inside.mp4 demo-output.mp4 dist/",
-    "check": "node --check app.js && node --check gesture-frame.mjs",
+    "build": "mkdir -p dist && cp index.html live.html app.js gesture-frame.mjs effects.js analytics.js preview-frame.css live-toolbar.css live-toolbar.js framelab-icon.svg bgm.mp3 demo-original.mp4 demo-inside.mp4 demo-output.mp4 dist/",
+    "check": "node --check app.js && node --check gesture-frame.mjs && node --check live-toolbar.js",
     "test": "node --test tests/gesture-frame.test.mjs"
   }
 }
