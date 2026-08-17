@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#050608" />
-  <meta name="description" content="FrameLab GPU 实时互动摄像头：用手势、运动速度与画面运动场实时驱动视觉反馈。" />
+  <meta name="description" content="FrameLab GPU 实时互动摄像头：用真实视频帧运动场、时间反馈与手势实时驱动画面。" />
   <title>FrameLab · Realtime</title>
   <link rel="stylesheet" href="./live-interactive.css?v=2" />
 </head>
@@ -25,12 +25,12 @@
 
   <div id="live-hint" aria-hidden="true">
     <strong>MOVE THE IMAGE</strong>
-    <span>挥动 · 捏合 · 双手靠近</span>
+    <span>挥动 · 捏合 · 双手靠近 · 用动作改变时间</span>
   </div>
 
   <div id="interactive-toolbar" aria-label="实时视觉控制">
     <label class="effect-control">
-      <span>LIVE SYSTEM</span>
+      <span>REALTIME SYSTEM</span>
       <select id="interactive-effect-select" aria-label="选择实时互动视觉效果"></select>
     </label>
     <div class="motion-meter" aria-hidden="true"><span></span></div>
@@ -42,6 +42,6 @@
   </div>
 
   <script src="./analytics.js"></script>
-  <script src="./live-interactive.js?v=2"></script>
+  <script src="./live-interactive-v3.js?v=3"></script>
 </body>
 </html>
