@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#050608" />
+  <meta name="description" content="FrameLab GPU 实时互动摄像头：用真实视频帧运动场、时间反馈与手势实时驱动画面。" />
+  <title>FrameLab · Realtime</title>
+  <link rel="stylesheet" href="./live-interactive.css?v=2" />
+</head>
+<body>
+  <main id="live-stage" aria-label="FrameLab 实时互动摄像头">
+    <video id="live-video" autoplay playsinline muted></video>
+    <canvas id="gl-canvas"></canvas>
+  </main>
+
+  <a id="live-back" href="./index.html" aria-label="返回 FrameLab">
+    <span aria-hidden="true">←</span><span>FrameLab</span>
+  </a>
+
+  <div id="live-status" role="status" aria-live="polite">
+    <span class="status-dot" aria-hidden="true"></span>
+    <span id="live-status-text">正在启动实时视觉引擎…</span>
+  </div>
+
+  <div id="live-hint" aria-hidden="true">
+    <strong>MOVE THE IMAGE</strong>
+    <span>挥动 · 捏合 · 双手靠近 · 用动作改变时间</span>
+  </div>
+
+  <div id="interactive-toolbar" aria-label="实时视觉控制">
+    <label class="effect-control">
+      <span>REALTIME SYSTEM</span>
+      <select id="interactive-effect-select" aria-label="选择实时互动视觉效果"></select>
+    </label>
+    <div class="motion-meter" aria-hidden="true"><span></span></div>
+    <button id="interactive-record" class="interactive-record" type="button">
+      <span class="interactive-record-dot" aria-hidden="true"></span>
+      <span class="interactive-record-label">录制</span>
+      <time>00:00</time>
+    </button>
+  </div>
+
+  <script src="./analytics.js"></script>
+  <script src="./live-interactive-v3.js?v=3"></script>
+</body>
+</html>

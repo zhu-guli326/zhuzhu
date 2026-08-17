@@ -1,13 +1,9 @@
 (function () {
   window.FRAMELAB_EFFECTS = [
-    { id: "glitch", labelKey: "effectGlitch", zh: "故障闪切", en: "Glitch Cut" },
-    { id: "scan", labelKey: "effectScan", zh: "霓虹扫描", en: "Neon Scan" },
-    { id: "focus", labelKey: "effectFocus", zh: "暗场聚焦", en: "Dark Focus" },
-    { id: "feedback", labelKey: "effectFeedback", zh: "反馈残影", en: "Feedback Echo" },
-    { id: "rgb", labelKey: "effectRgb", zh: "RGB 分离", en: "RGB Split" },
-    { id: "pixel", labelKey: "effectPixel", zh: "像素海报", en: "Pixel Poster" },
-    { id: "warp", labelKey: "effectWarp", zh: "液态扭曲", en: "Liquid Warp" },
-    { id: "raster", labelKey: "effectRaster", zh: "扫描切片", en: "Raster Slice" },
+    { id: "feedback", labelKey: "effectFeedback", zh: "反馈残影", en: "Feedback Trail" },
+    { id: "flow", labelKey: "effectFlow", zh: "液态位移", en: "Fluid Displace" },
+    { id: "electric", labelKey: "effectElectric", zh: "电场轮廓", en: "Electric Bloom" },
+    { id: "glitch", labelKey: "effectGlitch", zh: "运动撕裂", en: "Motion Glitch" },
   ];
 
   function loadStylesheet(href, marker) {
@@ -30,17 +26,22 @@
 
   loadStylesheet("./preview-frame.css?v=3", "data-framelab-preview-fix");
 
-  // Upload composer: show a decodable first frame immediately while app.js
-  // keeps loading MediaPipe in the background and later enables auto tracking.
   if (document.getElementById("orig-file") && document.getElementById("preview-area")) {
     loadScript("./progressive-preview.js?v=1", "data-framelab-progressive-preview");
   }
 
-  // live.html already has #toolbar in the DOM before effects.js executes.
-  // Convert the large button matrix into a compact dropdown without touching
-  // the existing effect engine, recording flow, analytics, or keyboard shortcuts.
-  if (document.getElementById("toolbar")) {
-    loadStylesheet("./live-toolbar.css?v=2", "data-framelab-live-toolbar");
-    loadScript("./live-toolbar.js?v=1", "data-framelab-live-toolbar");
+  // live.html contains the original Canvas2D + MediaPipe loop. Running the new
+  // renderer on top of it means two trackers and two render loops compete for
+  // the same camera. Redirect before the legacy module starts so the GPU path
+  // owns camera input, tracking, feedback and recording end to end.
+  if (document.getElementById("toolbar") && document.getElementById("video")) {
+    const query = new URLSearchParams(location.search);
+    if (!query.has("legacy")) {
+      const next = new URL("./live-v2.html", location.href);
+      next.search = location.search;
+      next.hash = location.hash;
+      location.replace(next.href);
+      return;
+    }
   }
 })();
