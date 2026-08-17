@@ -1,189 +1,35 @@
-const HERO = new Set(["holo", "glitch", "triprism"]);
-const FRAME_ONLY = new Set([
-  "funhouse", "negative", "colornegative", "dot", "antidot", "vangogh",
-  "neon", "raster", "thermal", "waveprint", "retropink", "spectrum",
-]);
-const LABELS = { holo: "捏合棱镜", glitch: "挥手撕裂", triprism: "框选传送门" };
-const SIGNAL_TTL = 64;
-const SWIPE_TTL = 480;
-const SWIPE_COOLDOWN = 145;
-const PORTAL_RELEASE = 60;
-
-const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");
-const toolbar = document.getElementById("toolbar");
-
-if (video && canvas && toolbar) {
-  const ctx = canvas.getContext("2d");
-  const source = document.createElement("canvas");
-  const sctx = source.getContext("2d");
-  let raf = 0;
-  let lastEffect = "";
-  let tears = [];
-  let lastSwipe = -Infinity;
-  const portal = { quad: null, back: null, alpha: 0, seen: 0, lost: 0 };
-
-  const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
-  const mix = (a, b, t) => a + (b - a) * t;
-  const effectId = () => toolbar.querySelector('button[data-id].active,button[data-id][aria-pressed="true"]')?.dataset.id || "";
-
-  function signal(now) {
-    const s = globalThis.FRAMELAB_GESTURE_3D;
-    return s && Number.isFinite(s.timestamp) && now - s.timestamp <= SIGNAL_TTL ? s : null;
-  }
-
-  function size() {
-    const w = canvas.width || video.videoWidth || 1280;
-    const h = canvas.height || video.videoHeight || 720;
-    if (source.width !== w || source.height !== h) { source.width = w; source.height = h; }
-    return { w, h };
-  }
-
-  function capture(w, h) {
-    sctx.setTransform(1, 0, 0, 1, 0, 0);
-    sctx.clearRect(0, 0, w, h);
-    sctx.translate(w, 0); sctx.scale(-1, 1);
-    sctx.drawImage(video, 0, 0, w, h);
-    sctx.setTransform(1, 0, 0, 1, 0, 0);
-  }
-
-  function clean(w, h) {
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; ctx.filter = "none";
-    ctx.clearRect(0, 0, w, h); ctx.drawImage(source, 0, 0);
-    ctx.restore();
-  }
-
-  function path(q) {
-    ctx.beginPath(); ctx.moveTo(q[0].x, q[0].y);
-    for (let i = 1; i < q.length; i++) ctx.lineTo(q[i].x, q[i].y);
-    ctx.closePath();
-  }
-
-  function rename() {
-    for (const [id, label] of Object.entries(LABELS)) {
-      const b = toolbar.querySelector(`button[data-id="${id}"]`);
-      if (!b) continue;
-      const key = b.querySelector(".key")?.textContent?.trim() || "";
-      if (b.dataset.heroLabel === label) continue;
-      b.innerHTML = `${key ? `<span class="key">${key}</span>` : ""}${label}`;
-      b.title = `${label}${key ? ` (${key})` : ""}`;
-      b.dataset.heroLabel = label;
-    }
-  }
-
-  function drawPinch(s, w, h) {
-    const p = s?.pinch;
-    if (!p || p.handIndex < 0 || p.strength < 0.1) return;
-    const hand = s.hands?.[p.handIndex];
-    const strength = clamp(p.strength * .9 + Math.abs(hand?.vz || 0) * .18);
-    const cx = p.x * w, cy = p.y * h;
-    const depth = clamp((-p.z + .02) * 4.2, -.15, 1);
-    const radius = clamp((hand?.palmScale || .12) * Math.min(w, h) * (1.4 + strength), Math.min(w,h)*.09, Math.min(w,h)*.3);
-    const tilt = clamp(p.tiltZ * 8, -1, 1);
-
-    ctx.save();
-    ctx.beginPath(); ctx.ellipse(cx, cy, radius, radius * (.78 + depth * .08), tilt * .2, 0, Math.PI * 2); ctx.clip();
-    ctx.translate(cx, cy); ctx.scale(1.08 + strength * .38, 1.08 + strength * .38); ctx.translate(-cx, -cy);
-    ctx.filter = `saturate(${1.4 + strength}) contrast(${1.1 + strength*.3})`;
-    ctx.drawImage(source, 0, 0); ctx.filter = "none";
-    ctx.globalCompositeOperation = "screen"; ctx.globalAlpha = .2 + strength*.2;
-    const split = radius * (.05 + strength*.1);
-    ctx.filter = "hue-rotate(105deg) saturate(2)"; ctx.drawImage(source, split, -split*.2);
-    ctx.filter = "hue-rotate(-95deg) saturate(2)"; ctx.drawImage(source, -split, split*.2);
-    ctx.restore();
-
-    ctx.save(); ctx.globalCompositeOperation = "screen";
-    const glow = ctx.createRadialGradient(cx,cy,0,cx,cy,radius*1.35);
-    glow.addColorStop(0,`rgba(255,255,255,${.18+strength*.24})`);
-    glow.addColorStop(.35,`rgba(199,241,91,${.12+strength*.25})`);
-    glow.addColorStop(.68,`rgba(82,105,255,${.1+strength*.2})`); glow.addColorStop(1,"rgba(255,60,165,0)");
-    ctx.fillStyle=glow; ctx.fillRect(cx-radius*1.4,cy-radius*1.4,radius*2.8,radius*2.8);
-    const ring=ctx.createLinearGradient(cx-radius,cy-radius,cx+radius,cy+radius);
-    ring.addColorStop(0,"#eaffff"); ring.addColorStop(.3,"#c7f15b"); ring.addColorStop(.58,"#596aff"); ring.addColorStop(.82,"#ff48a8"); ring.addColorStop(1,"#eaffff");
-    ctx.strokeStyle=ring; ctx.lineWidth=2.2+strength*3; ctx.shadowColor="#69e9ff"; ctx.shadowBlur=16+strength*20;
-    ctx.beginPath(); ctx.ellipse(cx,cy,radius,radius*(.78+depth*.08),tilt*.2,0,Math.PI*2); ctx.stroke(); ctx.restore();
-  }
-
-  function spawnSwipe(s, now) {
-    const p = s?.swipe;
-    if (!p || p.handIndex < 0 || p.strength < .34 || now-lastSwipe < SWIPE_COOLDOWN) return;
-    lastSwipe = now;
-    tears.push({ born:now, x:p.x, y:p.y, vx:p.vx, vy:p.vy, vz:p.vz, axis:p.axis, dir:p.direction||1, strength:p.strength, seed:Math.random()*20 });
-    if (tears.length > 6) tears.shift();
-  }
-
-  function drawSwipe(s, w, h, now) {
-    spawnSwipe(s, now);
-    tears = tears.filter(t => now-t.born < SWIPE_TTL);
-    for (const t of tears) {
-      const age=(now-t.born)/SWIPE_TTL, fade=1-age, horizontal=t.axis==="x";
-      const cx=t.x*w, cy=t.y*h, speed=1+clamp(Math.abs(t.vz)*.5,0,.8);
-      const max=(horizontal?w:h)*(.03+t.strength*.09)*speed*fade;
-      ctx.save();
-      for(let i=0;i<10;i++){
-        const u=i/9-.5, wave=Math.sin(t.seed+i*2.4)*.75;
-        ctx.globalAlpha=.28+.58*fade; ctx.filter=i%3===0?"hue-rotate(85deg) saturate(1.8)":i%3===1?"hue-rotate(-80deg) saturate(1.8)":"none";
-        if(horizontal){const bh=Math.max(4,h*(.009+t.strength*.012)), y=clamp(cy+u*h*.4+wave*bh,0,h-bh);ctx.drawImage(source,0,y,w,bh,max*t.dir*(.55+Math.abs(wave)),y+wave*2,w,bh);}
-        else {const bw=Math.max(4,w*(.009+t.strength*.012)), x=clamp(cx+u*w*.4+wave*bw,0,w-bw);ctx.drawImage(source,x,0,bw,h,x+wave*2,max*t.dir*(.55+Math.abs(wave)),bw,h);}
-      }
-      ctx.filter="none";ctx.globalCompositeOperation="screen";ctx.shadowBlur=14;ctx.shadowColor=horizontal?"#ff3d98":"#3ee6ff";ctx.lineWidth=1.5+t.strength*3;
-      const g=horizontal?ctx.createLinearGradient(0,cy,w,cy):ctx.createLinearGradient(cx,0,cx,h);g.addColorStop(0,"rgba(255,50,145,0)");g.addColorStop(.45,`rgba(255,50,145,${.35*fade})`);g.addColorStop(.52,`rgba(235,255,255,${.8*fade})`);g.addColorStop(.6,`rgba(55,230,255,${.35*fade})`);g.addColorStop(1,"rgba(55,230,255,0)");ctx.strokeStyle=g;
-      ctx.beginPath();if(horizontal){ctx.moveTo(0,cy);ctx.lineTo(w,cy+t.vy*h*.018);}else{ctx.moveTo(cx,0);ctx.lineTo(cx+t.vx*w*.018,h);}ctx.stroke();ctx.restore();
-    }
-  }
-
-  function portalGeometry(frame,w,h){
-    const q=frame.quad.map(p=>({x:p.x*w,y:p.y*h}));
-    const depths=frame.cornerDepths||[0,0,0,0], avg=depths.reduce((a,b)=>a+b,0)/4;
-    const depth=clamp((-frame.depth+.025)*4+frame.depthSpread*3,.08,1), tilt=clamp(frame.depthDelta*8,-1,1), ext=14+depth*42;
-    const back=q.map((p,i)=>({x:p.x+tilt*(16+depth*22)+clamp((avg-(depths[i]||0))*8,-.65,.65)*ext*.7,y:p.y+8+depth*20+ext*.08}));
-    return {q,back,depth,tilt};
-  }
-
-  function updatePortal(s,now,w,h){
-    const f=s?.frame;
-    if(f?.valid&&f.quad?.length===4){
-      const g=portalGeometry(f,w,h); portal.seen=now;portal.lost=0;
-      if(!portal.quad){portal.quad=g.q;portal.back=g.back;}else{portal.quad=portal.quad.map((p,i)=>({x:mix(p.x,g.q[i].x,.4),y:mix(p.y,g.q[i].y,.4)}));portal.back=portal.back.map((p,i)=>({x:mix(p.x,g.back[i].x,.4),y:mix(p.y,g.back[i].y,.4)}));}
-      portal.depth=g.depth;portal.alpha=mix(portal.alpha,1,.48);return;
-    }
-    portal.lost++;portal.alpha*=.28;
-    if(portal.lost>=2||now-portal.seen>PORTAL_RELEASE){portal.quad=null;portal.back=null;portal.alpha=0;}
-  }
-
-  function drawPortal(s,w,h,now){
-    updatePortal(s,now,w,h); if(!portal.quad||portal.alpha<.01)return;
-    const q=portal.quad,b=portal.back,center=q.reduce((a,p)=>({x:a.x+p.x/4,y:a.y+p.y/4}),{x:0,y:0});
-    ctx.save();ctx.globalAlpha=portal.alpha;ctx.globalCompositeOperation="screen";
-    for(let i=0;i<4;i++){const j=(i+1)%4,g=ctx.createLinearGradient(q[i].x,q[i].y,b[i].x,b[i].y);g.addColorStop(0,i%2?"rgba(255,65,165,.45)":"rgba(199,241,91,.45)");g.addColorStop(1,i%2?"rgba(55,230,255,.38)":"rgba(82,105,255,.42)");ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(q[i].x,q[i].y);ctx.lineTo(q[j].x,q[j].y);ctx.lineTo(b[j].x,b[j].y);ctx.lineTo(b[i].x,b[i].y);ctx.closePath();ctx.fill();}
-    ctx.restore();
-    ctx.save();ctx.globalAlpha=portal.alpha;path(q);ctx.clip();ctx.translate(center.x,center.y);ctx.scale(1.08+portal.depth*.18,1.08+portal.depth*.18);ctx.translate(-center.x,-center.y);ctx.filter=`saturate(${1.5+portal.depth*.7}) contrast(${1.1+portal.depth*.3})`;ctx.drawImage(source,0,0);ctx.restore();
-    ctx.save();ctx.globalAlpha=portal.alpha;ctx.globalCompositeOperation="screen";const g=ctx.createLinearGradient(q[0].x,q[0].y,q[2].x,q[2].y);g.addColorStop(0,"#eaffff");g.addColorStop(.25,"#c7f15b");g.addColorStop(.55,"#596aff");g.addColorStop(.8,"#ff48a8");g.addColorStop(1,"#eaffff");ctx.strokeStyle=g;ctx.lineWidth=2.5+portal.depth*2.5;ctx.shadowColor="#61e8ff";ctx.shadowBlur=16+portal.depth*16;path(q);ctx.stroke();ctx.globalAlpha*=.5;path(b);ctx.stroke();ctx.restore();
-  }
-
-  function resetEffectState(){tears=[];lastSwipe=-Infinity;portal.quad=null;portal.back=null;portal.alpha=0;portal.lost=0;}
-
-  function render(now){
-    const e=effectId(); if(e!==lastEffect){resetEffectState();lastEffect=e;rename();}
-    if(video.readyState<HTMLMediaElement.HAVE_CURRENT_DATA||!video.videoWidth){schedule();return;}
-    const {w,h}=size();capture(w,h);const s=signal(now);
-    if(HERO.has(e)){
-      clean(w,h);
-      if(e==="holo")drawPinch(s,w,h);
-      else if(e==="glitch")drawSwipe(s,w,h,now);
-      else drawPortal(s,w,h,now);
-    } else if(FRAME_ONLY.has(e)&&!s?.quadValid){
-      // Final compositor wins over the legacy 25-frame hold.
-      clean(w,h);
-    }
-    if(globalThis.__FRAMELAB_DEBUG__) window.dispatchEvent(new CustomEvent("framelab-runtime-frame",{detail:{effect:e,fresh:Boolean(s),quadValid:Boolean(s?.quadValid)}}));
-    schedule();
-  }
-
-  function schedule(){setTimeout(()=>{raf=requestAnimationFrame(render);},0);}
-  const observer=new MutationObserver(rename);observer.observe(toolbar,{childList:true});rename();setTimeout(()=>observer.disconnect(),15000);
-  function start(){if(video.readyState>=HTMLMediaElement.HAVE_CURRENT_DATA&&canvas.width)schedule();else requestAnimationFrame(start);}start();
-  window.addEventListener("pagehide",()=>cancelAnimationFrame(raf),{once:true});
+const HERO=new Set(["holo","glitch","triprism"]);
+const FRAME_ONLY=new Set(["funhouse","negative","colornegative","dot","antidot","vangogh","neon","raster","thermal","waveprint","retropink","spectrum"]);
+const LABELS={holo:"捏合棱镜",glitch:"挥手撕裂",triprism:"框选传送门"};
+const SIGNAL_TTL=64, PINCH_RELEASE=64, PORTAL_RELEASE=60, SWIPE_TTL=250, SWIPE_COOLDOWN=100;
+const video=document.getElementById("video"),canvas=document.getElementById("canvas"),toolbar=document.getElementById("toolbar");
+if(video&&canvas&&toolbar){
+ const ctx=canvas.getContext("2d"),src=document.createElement("canvas"),sctx=src.getContext("2d");
+ let raf=0,lastEffect="",lastSwipe=-Infinity,tears=[],quality=1,costEma=0;
+ const pinch={a:0,x:.5,y:.5,z:0,tilt:0,s:0,scale:.12,vz:0,seen:-Infinity,lost:0};
+ const portal={q:null,b:null,c:null,a:0,d:0,t:0,seen:-Infinity,lost:0,stable:0};
+ const clamp=(v,a=0,b=1)=>Math.min(b,Math.max(a,v)),mix=(a,b,t)=>a+(b-a)*t;
+ const effectId=()=>toolbar.querySelector('button[data-id].active,button[data-id][aria-pressed="true"]')?.dataset.id||"";
+ const signal=now=>{const s=globalThis.FRAMELAB_GESTURE_3D;return s&&Number.isFinite(s.timestamp)&&now-s.timestamp<=SIGNAL_TTL?s:null};
+ function size(){const w=canvas.width||video.videoWidth||1280,h=canvas.height||video.videoHeight||720;if(src.width!==w||src.height!==h){src.width=w;src.height=h}return{w,h}}
+ function capture(w,h){sctx.setTransform(1,0,0,1,0,0);sctx.globalAlpha=1;sctx.globalCompositeOperation="source-over";sctx.filter="none";sctx.clearRect(0,0,w,h);sctx.translate(w,0);sctx.scale(-1,1);sctx.drawImage(video,0,0,w,h);sctx.setTransform(1,0,0,1,0,0)}
+ function clean(w,h){ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation="source-over";ctx.filter="none";ctx.clearRect(0,0,w,h);ctx.drawImage(src,0,0,w,h);ctx.restore()}
+ function path(q){ctx.beginPath();ctx.moveTo(q[0].x,q[0].y);for(let i=1;i<q.length;i++)ctx.lineTo(q[i].x,q[i].y);ctx.closePath()}
+ function rename(){for(const[id,label]of Object.entries(LABELS)){const b=toolbar.querySelector(`button[data-id="${id}"]`);if(!b||b.dataset.heroLabel===label)continue;const k=b.querySelector(".key")?.textContent?.trim()||"";b.innerHTML=`${k?`<span class="key">${k}</span>`:""}${label}`;b.title=`${label}${k?` (${k})`:""}`;b.dataset.heroLabel=label}}
+ function updatePinch(s,now){const p=s?.pinch,h=p?.handIndex>=0?s?.hands?.[p.handIndex]:null,th=pinch.a>.06?.055:.14,ok=!!(p&&h&&p.strength>=th);if(ok){pinch.seen=now;pinch.lost=0;pinch.x=mix(pinch.x,p.x,.55);pinch.y=mix(pinch.y,p.y,.55);pinch.z=mix(pinch.z,p.z||0,.5);pinch.tilt=mix(pinch.tilt,p.tiltZ||0,.5);pinch.s=mix(pinch.s,clamp(p.strength),.62);pinch.scale=mix(pinch.scale,h.palmScale||.12,.4);pinch.vz=mix(pinch.vz,h.vz||0,.58);pinch.a=mix(pinch.a,1,.62)}else{pinch.lost++;pinch.a*=.24;pinch.s*=.42;if(pinch.lost>=2||now-pinch.seen>PINCH_RELEASE){pinch.a=0;pinch.s=0}}}
+ function drawPinch(s,w,h,now){updatePinch(s,now);if(pinch.a<=.01)return;const S=clamp(pinch.s*.9+Math.min(Math.abs(pinch.vz)*.2,.35)),D=clamp((-pinch.z+.018)*5.2,-.1,1),cx=pinch.x*w,cy=pinch.y*h,m=Math.min(w,h),r=clamp(pinch.scale*m*(1.15+S*1.5+D*.25),m*.085,m*.32),rot=clamp(pinch.tilt*9,-1,1)*.24+pinch.vz*.018;
+  ctx.save();ctx.globalAlpha=pinch.a;ctx.beginPath();ctx.ellipse(cx,cy,r,r*(.79+D*.06),rot,0,Math.PI*2);ctx.clip();ctx.translate(cx,cy);const z=1.07+S*.42+Math.max(0,D)*.08;ctx.scale(z,z*(1-S*.16));ctx.rotate(rot*.18);ctx.translate(-cx,-cy);ctx.filter=`saturate(${1.45+S*1.15}) contrast(${1.08+S*.34})`;ctx.drawImage(src,0,0,w,h);ctx.filter="none";ctx.globalCompositeOperation="screen";const split=r*(.035+S*.115+Math.max(0,D)*.035),dx=Math.cos(rot),dy=Math.sin(rot),layers=quality>.78?4:2;for(let i=1;i<=layers;i++){const u=i/layers,sg=i%2?1:-1;ctx.globalAlpha=pinch.a*(.08+S*.08)*(1-u*.35);ctx.filter=i%2?"hue-rotate(105deg) saturate(2.3)":"hue-rotate(-95deg) saturate(2.3)";ctx.drawImage(src,dx*split*u*sg,dy*split*u*sg,w,h)}ctx.restore();
+  ctx.save();ctx.globalCompositeOperation="screen";ctx.globalAlpha=pinch.a;const rings=quality>.78?5:3;for(let i=0;i<rings;i++){const u=(i+1)/rings,rr=r*(.38+u*.62);ctx.strokeStyle=i%2?`rgba(199,241,91,${.12+S*.12})`:`rgba(93,111,255,${.12+S*.13})`;ctx.lineWidth=1+(1-u)*2.4;ctx.beginPath();ctx.ellipse(cx,cy,rr,rr*(.79+D*.06),rot+(u-.5)*.04,0,Math.PI*2);ctx.stroke()}const glow=ctx.createRadialGradient(cx,cy,r*.05,cx,cy,r*1.45);glow.addColorStop(0,`rgba(255,255,255,${.18+S*.26})`);glow.addColorStop(.32,`rgba(199,241,91,${.11+S*.2})`);glow.addColorStop(.62,`rgba(82,105,255,${.09+S*.2})`);glow.addColorStop(1,"rgba(255,62,165,0)");ctx.fillStyle=glow;ctx.fillRect(cx-r*1.5,cy-r*1.5,r*3,r*3);const rim=ctx.createLinearGradient(cx-r,cy-r,cx+r,cy+r);rim.addColorStop(0,"#efffff");rim.addColorStop(.24,"#c7f15b");rim.addColorStop(.5,"#596aff");rim.addColorStop(.78,"#ff48a8");rim.addColorStop(1,"#efffff");ctx.strokeStyle=rim;ctx.lineWidth=2.2+S*3.8;ctx.shadowColor="rgba(105,233,255,.9)";ctx.shadowBlur=14+S*24;ctx.beginPath();ctx.ellipse(cx,cy,r,r*(.79+D*.06),rot,0,Math.PI*2);ctx.stroke();ctx.restore()}
+ function spawnSwipe(s,now){const p=s?.swipe;if(!p||p.handIndex<0||p.strength<.34||(p.speed||0)<.68||now-lastSwipe<SWIPE_COOLDOWN)return;const mag=Math.hypot(p.vx||0,p.vy||0)||1;lastSwipe=now;tears.push({born:now,x:p.x,y:p.y,nx:(p.vx||0)/mag,ny:(p.vy||0)/mag,vz:p.vz||0,s:clamp(p.strength),seed:Math.random()*100});if(tears.length>4)tears.shift()}
+ function shard(cx,cy,tx,ty,nx,ny,len,w,skew){ctx.beginPath();ctx.moveTo(cx-tx*len-nx*w,cy-ty*len-ny*w);ctx.lineTo(cx+tx*len-nx*w+nx*skew,cy+ty*len-ny*w+ny*skew);ctx.lineTo(cx+tx*len+nx*w,cy+ty*len+ny*w);ctx.lineTo(cx-tx*len+nx*w-nx*skew,cy-ty*len+ny*w-ny*skew);ctx.closePath()}
+ function drawSwipe(s,w,h,now){spawnSwipe(s,now);tears=tears.filter(t=>now-t.born<SWIPE_TTL);const count=quality>.78?8:5;for(const t of tears){const age=clamp((now-t.born)/SWIPE_TTL),fade=Math.pow(1-age,2.25),cx=t.x*w,cy=t.y*h,tx=t.nx,ty=t.ny,nx=-ty,ny=tx,disp=Math.min(w,h)*(.035+t.s*.115)*(1+clamp(Math.abs(t.vz)*.32,0,.5))*fade,span=Math.hypot(w,h)*(.28+t.s*.22);for(let i=0;i<count;i++){const u=i/(count-1)-.5,wob=Math.sin(t.seed+i*2.37)*.78,scx=cx+nx*u*Math.min(w,h)*.42+tx*wob*6,scy=cy+ny*u*Math.min(w,h)*.42+ty*wob*6,bw=Math.max(4,Math.min(w,h)*(.007+t.s*.012)),off=disp*(.48+Math.abs(wob)*.55);ctx.save();shard(scx,scy,tx,ty,nx,ny,span,bw,wob*bw*1.4);ctx.clip();ctx.globalAlpha=(.36+.58*fade)*fade;ctx.filter=i%3===0?"hue-rotate(92deg) saturate(2.1)":i%3===1?"hue-rotate(-86deg) saturate(2.1)":"none";ctx.drawImage(src,tx*off,ty*off,w,h);ctx.restore()}ctx.save();ctx.globalCompositeOperation="screen";ctx.globalAlpha=fade;const g=ctx.createLinearGradient(cx-tx*span,cy-ty*span,cx+tx*span,cy+ty*span);g.addColorStop(0,"rgba(255,55,150,0)");g.addColorStop(.34,`rgba(255,55,150,${.28*fade})`);g.addColorStop(.5,`rgba(245,255,255,${.92*fade})`);g.addColorStop(.66,`rgba(55,230,255,${.3*fade})`);g.addColorStop(1,"rgba(55,230,255,0)");ctx.strokeStyle=g;ctx.lineWidth=1.5+t.s*3.5;ctx.shadowColor="rgba(94,226,255,.85)";ctx.shadowBlur=10+t.s*14;ctx.beginPath();ctx.moveTo(cx-tx*span,cy-ty*span);ctx.lineTo(cx+tx*span,cy+ty*span);ctx.stroke();ctx.restore()}}
+ function pgeom(f,w,h){const q=f.quad.map(p=>({x:p.x*w,y:p.y*h})),ds=f.cornerDepths?.length===4?f.cornerDepths:[0,0,0,0],avg=ds.reduce((a,b)=>a+b,0)/4,d=clamp((-f.depth+.022)*4.8+f.depthSpread*3.6,.06,1),t=clamp(f.depthDelta*9,-1,1),ext=12+d*48,b=q.map((p,i)=>{const local=clamp((avg-ds[i])*8.5,-.72,.72);return{x:p.x+t*(16+d*26)+local*ext*.72,y:p.y+7+d*22+(.15-local)*ext*.16}}),c=q.reduce((a,p)=>({x:a.x+p.x/4,y:a.y+p.y/4}),{x:0,y:0});return{q,b,c,d,t}}
+ const lq=(a,b,t)=>a?b.map((p,i)=>({x:mix(a[i].x,p.x,t),y:mix(a[i].y,p.y,t)})):b.map(p=>({...p}));
+ function updatePortal(s,now,w,h){const f=s?.frame,ok=!!(f?.valid&&f.quad?.length===4);if(ok){const g=pgeom(f,w,h);portal.seen=now;portal.lost=0;portal.stable++;portal.q=lq(portal.q,g.q,.48);portal.b=lq(portal.b,g.b,.48);portal.c=portal.c?{x:mix(portal.c.x,g.c.x,.48),y:mix(portal.c.y,g.c.y,.48)}:g.c;portal.d=mix(portal.d||g.d,g.d,.46);portal.t=mix(portal.t||g.t,g.t,.46);portal.a=mix(portal.a,portal.stable>=2?1:.58,.66)}else{portal.stable=0;portal.lost++;portal.a*=.18;if(portal.lost>=2||now-portal.seen>PORTAL_RELEASE){portal.q=portal.b=portal.c=null;portal.a=portal.d=portal.t=0}}}
+ function inset(q,f){const c=q.reduce((a,p)=>({x:a.x+p.x/4,y:a.y+p.y/4}),{x:0,y:0});return q.map(p=>({x:mix(p.x,c.x,f),y:mix(p.y,c.y,f)}))}
+ function drawPortal(s,w,h,now){updatePortal(s,now,w,h);if(!portal.q||portal.a<=.01)return;const q=portal.q,b=portal.b,c=portal.c,d=portal.d;ctx.save();ctx.globalCompositeOperation="screen";ctx.globalAlpha=portal.a;for(let i=0;i<4;i++){const j=(i+1)%4,g=ctx.createLinearGradient(q[i].x,q[i].y,b[i].x,b[i].y);g.addColorStop(0,i%2?"rgba(255,65,165,.52)":"rgba(199,241,91,.48)");g.addColorStop(1,i%2?"rgba(55,230,255,.34)":"rgba(82,105,255,.45)");ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(q[i].x,q[i].y);ctx.lineTo(q[j].x,q[j].y);ctx.lineTo(b[j].x,b[j].y);ctx.lineTo(b[i].x,b[i].y);ctx.closePath();ctx.fill()}ctx.restore();ctx.save();ctx.globalAlpha=portal.a;path(q);ctx.clip();ctx.translate(c.x,c.y);ctx.rotate(portal.t*.035);const z=1.075+d*.22;ctx.scale(z,z);ctx.translate(-c.x,-c.y);ctx.filter=`saturate(${1.45+d*.85}) contrast(${1.08+d*.34})`;ctx.drawImage(src,portal.t*(10+d*18),d*5,w,h);ctx.restore();ctx.save();ctx.globalCompositeOperation="screen";const layers=quality>.78?5:3;for(let i=layers;i>=1;i--){const u=i/(layers+1),inner=inset(q,.07+u*.32);ctx.globalAlpha=portal.a*(.08+(1-u)*.14);ctx.strokeStyle=i%2?"rgba(199,241,91,.88)":"rgba(87,108,255,.9)";ctx.lineWidth=1.2+(1-u)*1.4;path(inner);ctx.stroke()}const rim=ctx.createLinearGradient(q[0].x,q[0].y,q[2].x,q[2].y);rim.addColorStop(0,"#efffff");rim.addColorStop(.24,"#c7f15b");rim.addColorStop(.52,"#596aff");rim.addColorStop(.8,"#ff48a8");rim.addColorStop(1,"#efffff");ctx.globalAlpha=portal.a;ctx.strokeStyle=rim;ctx.lineWidth=2.4+d*3;ctx.shadowColor="rgba(97,232,255,.9)";ctx.shadowBlur=14+d*20;path(q);ctx.stroke();ctx.globalAlpha=portal.a*.46;path(b);ctx.stroke();ctx.restore()}
+ function reset(){tears=[];lastSwipe=-Infinity;pinch.a=pinch.s=pinch.lost=0;portal.q=portal.b=portal.c=null;portal.a=portal.d=portal.t=portal.lost=portal.stable=0}
+ function render(now){const e=effectId();if(e!==lastEffect){reset();lastEffect=e;rename()}if(video.readyState<HTMLMediaElement.HAVE_CURRENT_DATA||!video.videoWidth){schedule();return}const s=signal(now),hero=HERO.has(e),erase=FRAME_ONLY.has(e)&&!s?.quadValid;if(!hero&&!erase){if(globalThis.__FRAMELAB_DEBUG__)window.dispatchEvent(new CustomEvent("framelab-runtime-frame",{detail:{effect:e,fresh:!!s,quadValid:!!s?.quadValid,costMs:0,quality}}));schedule();return}const st=performance.now(),{w,h}=size();capture(w,h);if(hero){clean(w,h);if(e==="holo")drawPinch(s,w,h,now);else if(e==="glitch")drawSwipe(s,w,h,now);else drawPortal(s,w,h,now)}else clean(w,h);const cost=performance.now()-st;costEma=costEma?mix(costEma,cost,.08):cost;quality=costEma>8.5?.62:costEma>5.2?.8:1;if(globalThis.__FRAMELAB_DEBUG__)window.dispatchEvent(new CustomEvent("framelab-runtime-frame",{detail:{effect:e,fresh:!!s,quadValid:!!s?.quadValid,signalAge:s?Math.max(0,now-s.timestamp):null,costMs:+cost.toFixed(2),quality}}));schedule()}
+ function schedule(){setTimeout(()=>{raf=requestAnimationFrame(render)},0)}
+ const obs=new MutationObserver(rename);obs.observe(toolbar,{childList:true});rename();setTimeout(()=>obs.disconnect(),15000);(function start(){if(video.readyState>=HTMLMediaElement.HAVE_CURRENT_DATA&&canvas.width)schedule();else requestAnimationFrame(start)})();window.addEventListener("pagehide",()=>cancelAnimationFrame(raf),{once:true});
 }
