@@ -1,10 +1,9 @@
 (function () {
   window.FRAMELAB_EFFECTS = [
-    { id: "echo", labelKey: "effectEcho", zh: "身体残影", en: "Body Echo" },
-    { id: "flow", labelKey: "effectFlow", zh: "液态流场", en: "Liquid Flow" },
-    { id: "electric", labelKey: "effectElectric", zh: "高压电场", en: "Electric Field" },
-    { id: "glitch", labelKey: "effectGlitch", zh: "动作撕裂", en: "Motion Tear" },
-    { id: "holo", labelKey: "effectHolo", zh: "全息脉冲", en: "Holo Pulse" },
+    { id: "feedback", labelKey: "effectFeedback", zh: "反馈残影", en: "Feedback Trail" },
+    { id: "flow", labelKey: "effectFlow", zh: "液态位移", en: "Fluid Displace" },
+    { id: "electric", labelKey: "effectElectric", zh: "电场轮廓", en: "Electric Bloom" },
+    { id: "glitch", labelKey: "effectGlitch", zh: "运动撕裂", en: "Motion Glitch" },
   ];
 
   function loadStylesheet(href, marker) {
@@ -31,11 +30,18 @@
     loadScript("./progressive-preview.js?v=1", "data-framelab-progressive-preview");
   }
 
-  // Live camera mode now uses a dedicated gesture-driven rendering layer.
-  // The legacy canvas remains underneath as a compatibility fallback while
-  // the interactive engine owns the visible preview and recording output.
+  // live.html contains the original Canvas2D + MediaPipe loop. Running the new
+  // renderer on top of it means two trackers and two render loops compete for
+  // the same camera. Redirect before the legacy module starts so the GPU path
+  // owns camera input, tracking, feedback and recording end to end.
   if (document.getElementById("toolbar") && document.getElementById("video")) {
-    loadStylesheet("./live-interactive.css?v=1", "data-framelab-live-interactive");
-    loadScript("./live-interactive.js?v=1", "data-framelab-live-interactive");
+    const query = new URLSearchParams(location.search);
+    if (!query.has("legacy")) {
+      const next = new URL("./live-v2.html", location.href);
+      next.search = location.search;
+      next.hash = location.hash;
+      location.replace(next.href);
+      return;
+    }
   }
 })();
