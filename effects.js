@@ -28,19 +28,24 @@
     document.head.appendChild(script);
   }
 
+  function loadModuleScript(src, marker) {
+    if (document.querySelector(`script[${marker}]`)) return;
+    const script = document.createElement("script");
+    script.type = "module";
+    script.src = src;
+    script.setAttribute(marker, "true");
+    document.head.appendChild(script);
+  }
+
   loadStylesheet("./preview-frame.css?v=3", "data-framelab-preview-fix");
 
-  // Upload composer: show a decodable first frame immediately while app.js
-  // keeps loading MediaPipe in the background and later enables auto tracking.
   if (document.getElementById("orig-file") && document.getElementById("preview-area")) {
     loadScript("./progressive-preview.js?v=1", "data-framelab-progressive-preview");
   }
 
-  // live.html already has #toolbar in the DOM before effects.js executes.
-  // Convert the large button matrix into a compact dropdown without touching
-  // the existing effect engine, recording flow, analytics, or keyboard shortcuts.
   if (document.getElementById("toolbar")) {
     loadStylesheet("./live-toolbar.css?v=2", "data-framelab-live-toolbar");
     loadScript("./live-toolbar.js?v=1", "data-framelab-live-toolbar");
+    loadModuleScript("./live-hero-fx.mjs?v=1", "data-framelab-live-hero-fx");
   }
 })();

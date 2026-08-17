@@ -22,8 +22,24 @@ const FINGERS = [
   [PINKY_MCP, PINKY_PIP, PINKY_TIP],
 ];
 
+let motionHistory = [];
+let motionTimestamp = null;
+
 function dist(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function dist3(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y, (a.z - b.z) * 1.35);
+}
+
+function clamp(value, min = 0, max = 1) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function smoothstep(edge0, edge1, value) {
+  const t = clamp((value - edge0) / Math.max(0.000001, edge1 - edge0));
+  return t * t * (3 - 2 * t);
 }
 
 function polygonArea(points) {
@@ -43,8 +59,17 @@ function makePixelMapper(width, height, mirrorX) {
   });
 }
 
+function makeNormalizedMapper(mirrorX) {
+  return (landmark) => ({
+    x: mirrorX ? 1 - landmark.x : landmark.x,
+    y: landmark.y,
+    z: Number.isFinite(landmark.z) ? landmark.z : 0,
+  });
+}
+
 function computeTwoHandQuad(hands, options, toPixel) {
   const info = hands.map((landmarks) => ({
+    landmarks,
     index: toPixel(landmarks[INDEX_TIP]),
     thumb: toPixel(landmarks[THUMB_TIP]),
     wristX: toPixel(landmarks[WRIST]).x,
@@ -171,27 +196,252 @@ function computeOpenHandQuad(landmarks, options, toPixel) {
   ];
 }
 
-export function computeGestureQuad(hands, options = {}) {
-  const width = Number(options.width);
-  const height = Number(options.height);
-  if (!Array.isArray(hands) || !Number.isFinite(width) || !Number.isFinite(height)) {
-    return null;
+function gestureTimestamp(options) {
+  if (Number.isFinite(options.timestamp)) return options.timestamp;
+  if (typeof performance !== "undefined" && typeof performance.now === "function") {
+    return performance.now();
   }
-  if (width <= 0 || height <= 0 || !hands.every((hand) => hand?.length >= 21)) {
-    return null;
+  return Date.now();
+}
+
+function createHand3DInfo(landmarks, mirrorX) {
+  const toNormalized = makeNormalizedMapper(mirrorX);
+  const wrist = toNormalized(landmarks[WRIST]);
+  const thumbTip = toNormalized(landmarks[THUMB_TIP]);
+  const indexTip = toNormalized(landmarks[INDEX_TIP]);
+  const indexMcp = toNormalized(landmarks[INDEX_MCP]);
+  const middleMcp = toNormalized(landmarks[MIDDLE_MCP]);
+  const pinkyMcp = toNormalized(landmarks[PINKY_MCP]);
+  const palm = {
+    x: (wrist.x + indexMcp.x + middleMcp.x + pinkyMcp.x) / 4,
+    y: (wrist.y + indexMcp.y + middleMcp.y + pinkyMcp.y) / 4,
+    z: (wrist.z + indexMcp.z + middleMcp.z + pinkyMcp.z) / 4,
+  };
+  const palmScale = dist3(wrist, middleMcp) + 0.0001;
+  const pinchRatio = dist3(thumbTip, indexTip) / palmScale;
+  const pinchStrength = 1 - smoothstep(0.32, 1.08, pinchRatio);
+  return {
+    x: palm.x,
+    y: palm.y,
+    z: palm.z,
+    palmScale,
+    pinchRatio,
+    pinchStrength,
+    pinch: {
+      x: (thumbTip.x + indexTip.x) / 2,
+      y: (thumbTip.y + indexTip.y) / 2,
+      z: (thumbTip.z + indexTip.z) / 2,
+      tiltZ: thumbTip.z - indexTip.z,
+    },
+    wrist,
+    thumbTip,
+    indexTip,
+    indexMcp,
+    middleMcp,
+    pinkyMcp,
+  };
+}
+
+function attachMotion(hands3D, timestamp, trackMotion) {
+  const sorted = [...hands3D].sort((a, b) => a.x - b.x);
+  if (!trackMotion) {
+    return sorted.map((hand) => ({
+      ...hand,
+      vx: 0,
+      vy: 0,
+      vz: 0,
+      speed: 0,
+      swipeStrength: 0,
+      swipeAxis: "x",
+      swipeDirection: 0,
+    }));
   }
 
-  const normalizedOptions = {
-    active: Boolean(options.active),
-    width,
-    height,
+  const dt = motionTimestamp == null
+    ? 1 / 60
+    : clamp((timestamp - motionTimestamp) / 1000, 1 / 120, 0.12);
+  const nextHistory = [];
+  const withMotion = sorted.map((hand, index) => {
+    const previous = motionHistory[index];
+    const rawVx = previous ? (hand.x - previous.x) / dt : 0;
+    const rawVy = previous ? (hand.y - previous.y) / dt : 0;
+    const rawVz = previous ? (hand.z - previous.z) / dt : 0;
+    const smoothing = previous ? 0.64 : 1;
+    const vx = previous ? previous.vx * (1 - smoothing) + rawVx * smoothing : rawVx;
+    const vy = previous ? previous.vy * (1 - smoothing) + rawVy * smoothing : rawVy;
+    const vz = previous ? previous.vz * (1 - smoothing) + rawVz * smoothing : rawVz;
+    const speed = Math.hypot(vx, vy);
+    const swipeStrength = smoothstep(0.45, 1.75, speed);
+    const swipeAxis = Math.abs(vx) >= Math.abs(vy) ? "x" : "y";
+    const swipeDirection = Math.sign(swipeAxis === "x" ? vx : vy) || 0;
+    const enriched = {
+      ...hand,
+      vx,
+      vy,
+      vz,
+      speed,
+      swipeStrength,
+      swipeAxis,
+      swipeDirection,
+    };
+    nextHistory.push({ x: hand.x, y: hand.y, z: hand.z, vx, vy, vz });
+    return enriched;
+  });
+  motionHistory = nextHistory;
+  motionTimestamp = timestamp;
+  return withMotion;
+}
+
+function create3DSignal(hands, options, quad, trackMotion) {
+  const timestamp = gestureTimestamp(options);
+  const mirrorX = Boolean(options.mirrorX);
+  const handInfos = attachMotion(
+    hands.map((landmarks) => createHand3DInfo(landmarks, mirrorX)),
+    timestamp,
+    trackMotion
+  );
+
+  const dominantPinch = handInfos.reduce(
+    (best, hand, index) =>
+      !best || hand.pinchStrength > best.strength
+        ? { handIndex: index, strength: hand.pinchStrength, ...hand.pinch }
+        : best,
+    null
+  );
+  const dominantSwipe = handInfos.reduce(
+    (best, hand, index) =>
+      !best || hand.swipeStrength > best.strength
+        ? {
+            handIndex: index,
+            strength: hand.swipeStrength,
+            axis: hand.swipeAxis,
+            direction: hand.swipeDirection,
+            x: hand.x,
+            y: hand.y,
+            z: hand.z,
+            vx: hand.vx,
+            vy: hand.vy,
+            vz: hand.vz,
+            speed: hand.speed,
+          }
+        : best,
+    null
+  );
+
+  let frame = {
+    valid: false,
+    quad: null,
+    depth: 0,
+    depthDelta: 0,
+    depthSpread: 0,
+    cornerDepths: [],
   };
-  const toPixel = makePixelMapper(width, height, Boolean(options.mirrorX));
-  if (hands.length === 2) {
-    return computeTwoHandQuad(hands, normalizedOptions, toPixel);
+
+  if (quad && hands.length === 2) {
+    const sorted = hands
+      .map((landmarks) => ({
+        landmarks,
+        wristX: makeNormalizedMapper(mirrorX)(landmarks[WRIST]).x,
+      }))
+      .sort((a, b) => a.wristX - b.wristX);
+    const left = sorted[0].landmarks;
+    const right = sorted[1].landmarks;
+    const cornerDepths = [
+      Number(left[INDEX_TIP].z) || 0,
+      Number(right[INDEX_TIP].z) || 0,
+      Number(right[THUMB_TIP].z) || 0,
+      Number(left[THUMB_TIP].z) || 0,
+    ];
+    const depth = cornerDepths.reduce((sum, value) => sum + value, 0) / 4;
+    const leftDepth = (cornerDepths[0] + cornerDepths[3]) / 2;
+    const rightDepth = (cornerDepths[1] + cornerDepths[2]) / 2;
+    frame = {
+      valid: true,
+      quad: quad.map((point) => ({
+        x: point.x / options.width,
+        y: point.y / options.height,
+      })),
+      depth,
+      depthDelta: leftDepth - rightDepth,
+      depthSpread: Math.max(...cornerDepths) - Math.min(...cornerDepths),
+      cornerDepths,
+    };
   }
-  if (hands.length === 1) {
-    return computeOpenHandQuad(hands[0], normalizedOptions, toPixel);
-  }
+
+  return {
+    version: 1,
+    timestamp,
+    handCount: hands.length,
+    hands: handInfos,
+    pinch: dominantPinch || { handIndex: -1, strength: 0, x: 0.5, y: 0.5, z: 0, tiltZ: 0 },
+    swipe: dominantSwipe || {
+      handIndex: -1,
+      strength: 0,
+      axis: "x",
+      direction: 0,
+      x: 0.5,
+      y: 0.5,
+      z: 0,
+      vx: 0,
+      vy: 0,
+      vz: 0,
+      speed: 0,
+    },
+    frame,
+  };
+}
+
+function normalizedOptions(options) {
+  return {
+    active: Boolean(options.active),
+    width: Number(options.width),
+    height: Number(options.height),
+    mirrorX: Boolean(options.mirrorX),
+    timestamp: options.timestamp,
+  };
+}
+
+function validGestureInput(hands, options) {
+  return (
+    Array.isArray(hands) &&
+    Number.isFinite(options.width) &&
+    Number.isFinite(options.height) &&
+    options.width > 0 &&
+    options.height > 0 &&
+    hands.every((hand) => hand?.length >= 21)
+  );
+}
+
+function computeQuadInternal(hands, options) {
+  const toPixel = makePixelMapper(options.width, options.height, options.mirrorX);
+  if (hands.length === 2) return computeTwoHandQuad(hands, options, toPixel);
+  if (hands.length === 1) return computeOpenHandQuad(hands[0], options, toPixel);
   return null;
+}
+
+function publishSignal(signal) {
+  if (typeof globalThis !== "undefined") {
+    globalThis.FRAMELAB_GESTURE_3D = signal;
+  }
+}
+
+export function resetGesture3DTracking() {
+  motionHistory = [];
+  motionTimestamp = null;
+  if (typeof globalThis !== "undefined") delete globalThis.FRAMELAB_GESTURE_3D;
+}
+
+export function computeGesture3DSignals(hands, options = {}) {
+  const normalized = normalizedOptions(options);
+  if (!validGestureInput(hands, normalized)) return null;
+  const quad = computeQuadInternal(hands, normalized);
+  return create3DSignal(hands, normalized, quad, false);
+}
+
+export function computeGestureQuad(hands, options = {}) {
+  const normalized = normalizedOptions(options);
+  if (!validGestureInput(hands, normalized)) return null;
+  const quad = computeQuadInternal(hands, normalized);
+  publishSignal(create3DSignal(hands, normalized, quad, true));
+  return quad;
 }
