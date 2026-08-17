@@ -1,13 +1,10 @@
 (function () {
   window.FRAMELAB_EFFECTS = [
-    { id: "glitch", labelKey: "effectGlitch", zh: "故障闪切", en: "Glitch Cut" },
-    { id: "scan", labelKey: "effectScan", zh: "霓虹扫描", en: "Neon Scan" },
-    { id: "focus", labelKey: "effectFocus", zh: "暗场聚焦", en: "Dark Focus" },
-    { id: "feedback", labelKey: "effectFeedback", zh: "反馈残影", en: "Feedback Echo" },
-    { id: "rgb", labelKey: "effectRgb", zh: "RGB 分离", en: "RGB Split" },
-    { id: "pixel", labelKey: "effectPixel", zh: "像素海报", en: "Pixel Poster" },
-    { id: "warp", labelKey: "effectWarp", zh: "液态扭曲", en: "Liquid Warp" },
-    { id: "raster", labelKey: "effectRaster", zh: "扫描切片", en: "Raster Slice" },
+    { id: "echo", labelKey: "effectEcho", zh: "身体残影", en: "Body Echo" },
+    { id: "flow", labelKey: "effectFlow", zh: "液态流场", en: "Liquid Flow" },
+    { id: "electric", labelKey: "effectElectric", zh: "高压电场", en: "Electric Field" },
+    { id: "glitch", labelKey: "effectGlitch", zh: "动作撕裂", en: "Motion Tear" },
+    { id: "holo", labelKey: "effectHolo", zh: "全息脉冲", en: "Holo Pulse" },
   ];
 
   function loadStylesheet(href, marker) {
@@ -30,17 +27,15 @@
 
   loadStylesheet("./preview-frame.css?v=3", "data-framelab-preview-fix");
 
-  // Upload composer: show a decodable first frame immediately while app.js
-  // keeps loading MediaPipe in the background and later enables auto tracking.
   if (document.getElementById("orig-file") && document.getElementById("preview-area")) {
     loadScript("./progressive-preview.js?v=1", "data-framelab-progressive-preview");
   }
 
-  // live.html already has #toolbar in the DOM before effects.js executes.
-  // Convert the large button matrix into a compact dropdown without touching
-  // the existing effect engine, recording flow, analytics, or keyboard shortcuts.
-  if (document.getElementById("toolbar")) {
-    loadStylesheet("./live-toolbar.css?v=2", "data-framelab-live-toolbar");
-    loadScript("./live-toolbar.js?v=1", "data-framelab-live-toolbar");
+  // Live camera mode now uses a dedicated gesture-driven rendering layer.
+  // The legacy canvas remains underneath as a compatibility fallback while
+  // the interactive engine owns the visible preview and recording output.
+  if (document.getElementById("toolbar") && document.getElementById("video")) {
+    loadStylesheet("./live-interactive.css?v=1", "data-framelab-live-interactive");
+    loadScript("./live-interactive.js?v=1", "data-framelab-live-interactive");
   }
 })();
