@@ -37,36 +37,38 @@
     document.head.appendChild(script);
   }
 
-  function preconnect(href) {
-    if (document.querySelector(`link[rel="preconnect"][href="${href}"]`)) return;
+  function addLink(rel, href, extra = {}) {
+    if (document.querySelector(`link[rel="${rel}"][href="${href}"]`)) return;
     const link = document.createElement("link");
-    link.rel = "preconnect";
+    link.rel = rel;
     link.href = href;
-    link.crossOrigin = "anonymous";
+    Object.assign(link, extra);
     document.head.appendChild(link);
   }
 
-  function setupFastDemoLoader() {
+  function setupStreamingDemoLoader() {
     const button = document.getElementById("btn-load-demo");
-    if (!button || button.dataset.fastDemoLoader === "true") return;
-    button.dataset.fastDemoLoader = "true";
+    if (!button || button.dataset.streamingDemoLoader === "true") return;
+    button.dataset.streamingDemoLoader = "true";
 
+    const directByName = new Map([
+      ["最终原视频.mp4", new URL("./demo-original.mp4", location.href).href],
+      ["动漫.mp4", new URL("./demo-inside.mp4", location.href).href],
+    ]);
+    const demoUrls = new Set(directByName.values());
     const nativeFetch = window.fetch.bind(window);
-    const demoUrls = [
-      new URL("./demo-original.mp4", location.href).href,
-      new URL("./demo-inside.mp4", location.href).href,
-    ];
-    const demoUrlSet = new Set(demoUrls);
-    const jobs = new Map();
-    let userRequestedDemo = false;
-    let buttonLabel = "";
+    const nativeCreateObjectURL = URL.createObjectURL.bind(URL);
+    const nativeRevokeObjectURL = URL.revokeObjectURL.bind(URL);
+    const warmers = [];
+    let warming = false;
+    let readyCount = 0;
+    let clicked = false;
+    let originalButtonText = "";
 
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-    const avoidAutomaticPrefetch = Boolean(
-      connection?.saveData || /(^|-)2g$/.test(String(connection?.effectiveType || ""))
-    );
+    const saveData = Boolean(connection?.saveData || /(^|-)2g$/.test(String(connection?.effectiveType || "")));
 
-    function requestUrl(input) {
+    function absoluteRequestUrl(input) {
       try {
         const raw = input instanceof Request ? input.url : String(input);
         return new URL(raw, location.href).href;
@@ -75,171 +77,108 @@
       }
     }
 
-    function updateButtonProgress() {
-      if (!userRequestedDemo) return;
-      const activeJobs = demoUrls.map((url) => jobs.get(url)).filter(Boolean);
-      const total = activeJobs.reduce((sum, job) => sum + (job.total || 0), 0);
-      const loaded = activeJobs.reduce((sum, job) => sum + Math.min(job.loaded || 0, job.total || Infinity), 0);
-      const completed = activeJobs.filter((job) => job.done).length;
-      let suffix = "";
-      if (total > 0) {
-        suffix = `${Math.min(99, Math.round((loaded / total) * 100))}%`;
-      } else if (completed > 0) {
-        suffix = `${completed}/2`;
-      } else {
-        suffix = "…";
-      }
-      button.textContent = `${buttonLabel || "Loading sample"} · ${suffix}`;
+    window.fetch = function framelabStreamingFetch(input, init) {
+      const url = absoluteRequestUrl(input);
+      if (!demoUrls.has(url)) return nativeFetch(input, init);
+      return Promise.resolve(
+        new Response(new Blob([], { type: "video/mp4" }), {
+          status: 200,
+          headers: { "content-type": "video/mp4", "content-length": "0" },
+        })
+      );
+    };
+
+    URL.createObjectURL = function framelabCreateObjectURL(value) {
+      const direct = value && value.size === 0 && value.name ? directByName.get(value.name) : "";
+      return direct || nativeCreateObjectURL(value);
+    };
+
+    URL.revokeObjectURL = function framelabRevokeObjectURL(url) {
+      if (demoUrls.has(String(url))) return;
+      nativeRevokeObjectURL(url);
+    };
+
+    function updateWarmStatus() {
+      if (!clicked) return;
+      if (!originalButtonText) originalButtonText = button.textContent.trim();
+      const label = document.documentElement.lang?.startsWith("en") ? "Opening sample" : "正在打开示例";
+      button.textContent = `${label} · ${Math.min(2, readyCount)}/2`;
       button.setAttribute("aria-busy", "true");
     }
 
-    function finishButtonProgress() {
-      if (!userRequestedDemo) return;
-      button.textContent = buttonLabel || button.textContent;
-      button.removeAttribute("aria-busy");
-      userRequestedDemo = false;
-    }
-
-    async function responseToBlob(response, job) {
-      if (!response.ok) throw new Error(`Demo preload failed: ${response.status}`);
-      const type = response.headers.get("content-type") || "video/mp4";
-      const total = Number(response.headers.get("content-length")) || 0;
-      job.total = total;
-
-      if (!response.body?.getReader) {
-        const blob = await response.blob();
-        job.loaded = blob.size;
-        job.total = job.total || blob.size;
-        updateButtonProgress();
-        return blob;
-      }
-
-      const reader = response.body.getReader();
-      const chunks = [];
-      let loaded = 0;
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        loaded += value.byteLength;
-        job.loaded = loaded;
-        updateButtonProgress();
-      }
-      const blob = new Blob(chunks, { type });
-      job.loaded = blob.size;
-      job.total = job.total || blob.size;
-      updateButtonProgress();
-      return blob;
-    }
-
-    function startPrefetch(url) {
-      const absoluteUrl = requestUrl(url);
-      if (!demoUrlSet.has(absoluteUrl)) return null;
-      const existing = jobs.get(absoluteUrl);
-      if (existing) return existing.promise;
-
-      const job = {
-        loaded: 0,
-        total: 0,
-        done: false,
-        blob: null,
-        promise: null,
+    function warmMedia(url) {
+      const video = document.createElement("video");
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = "auto";
+      video.style.cssText = "position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-10px;top:-10px";
+      let counted = false;
+      const markReady = () => {
+        if (counted) return;
+        counted = true;
+        readyCount += 1;
+        updateWarmStatus();
       };
-      job.promise = nativeFetch(absoluteUrl, {
-        cache: "force-cache",
-        credentials: "same-origin",
-        priority: "high",
-      })
-        .then((response) => responseToBlob(response, job))
-        .then((blob) => {
-          job.blob = blob;
-          job.done = true;
-          updateButtonProgress();
-          return blob;
-        })
-        .catch((error) => {
-          jobs.delete(absoluteUrl);
-          throw error;
-        });
-      jobs.set(absoluteUrl, job);
-      return job.promise;
+      video.addEventListener("loadeddata", markReady, { once: true });
+      video.addEventListener("canplay", markReady, { once: true });
+      video.src = url;
+      document.body.appendChild(video);
+      video.load();
+      warmers.push(video);
     }
 
-    function startBoth() {
-      demoUrls.forEach((url) => {
-        void startPrefetch(url)?.catch((error) => {
-          console.warn("Demo prefetch skipped", error);
-        });
-      });
+    function warmMediaPipe() {
+      addLink(
+        "modulepreload",
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs",
+        { crossOrigin: "anonymous" }
+      );
+      void nativeFetch(
+        "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+        { cache: "force-cache", mode: "cors" }
+      ).catch(() => {});
     }
 
-    // app.js fetches the two demo files after the click. Reuse the same
-    // in-flight/background download instead of starting two more network
-    // requests from zero. The rest of window.fetch remains untouched.
-    window.fetch = async function framelabFetch(input, init) {
-      const absoluteUrl = requestUrl(input);
-      if (!demoUrlSet.has(absoluteUrl)) return nativeFetch(input, init);
+    function startWarmup() {
+      if (warming) return;
+      warming = true;
+      directByName.forEach((url) => warmMedia(url));
+      warmMediaPipe();
+    }
 
-      const blob = await startPrefetch(absoluteUrl);
-      return new Response(blob, {
-        status: 200,
-        headers: {
-          "content-type": blob.type || "video/mp4",
-          "content-length": String(blob.size),
-        },
-      });
-    };
-
-    button.addEventListener(
-      "pointerenter",
-      () => startBoth(),
-      { passive: true }
-    );
-    button.addEventListener("focus", startBoth, { passive: true });
-    button.addEventListener(
-      "touchstart",
-      () => startBoth(),
-      { passive: true }
-    );
+    button.addEventListener("pointerenter", startWarmup, { passive: true });
+    button.addEventListener("focus", startWarmup, { passive: true });
+    button.addEventListener("touchstart", startWarmup, { passive: true });
     button.addEventListener(
       "click",
       () => {
-        if (!userRequestedDemo) buttonLabel = button.textContent.trim();
-        userRequestedDemo = true;
-        startBoth();
-        updateButtonProgress();
-        Promise.allSettled(demoUrls.map((url) => startPrefetch(url))).then(() => {
-          // app.js continues with decoding + MediaPipe after the network stage.
-          // Restore the localized label once the two heavy assets are local.
-          window.setTimeout(finishButtonProgress, 120);
-        });
+        clicked = true;
+        originalButtonText = button.textContent.trim();
+        startWarmup();
+        updateWarmStatus();
       },
       { capture: true }
     );
 
-    // The sample CTA is above the fold. Start low-friction background work
-    // after first paint on normal connections, so a later click usually reuses
-    // several seconds of already-downloaded data. Respect Save-Data/2G.
-    if (!avoidAutomaticPrefetch) {
-      const idleStart = () => startBoth();
-      if (typeof requestIdleCallback === "function") {
-        requestIdleCallback(idleStart, { timeout: 900 });
-      } else {
-        window.setTimeout(idleStart, 650);
-      }
+    if (!saveData) {
+      const idleStart = () => startWarmup();
+      if (typeof requestIdleCallback === "function") requestIdleCallback(idleStart, { timeout: 1000 });
+      else window.setTimeout(idleStart, 700);
     }
 
-    // The model is loaded immediately after the original demo becomes ready.
-    // Warm the two cross-origin connections without competing for the large
-    // video downloads themselves.
-    preconnect("https://cdn.jsdelivr.net");
-    preconnect("https://storage.googleapis.com");
+    window.addEventListener(
+      "pagehide",
+      () => warmers.forEach((video) => { video.pause(); video.removeAttribute("src"); video.remove(); }),
+      { once: true }
+    );
   }
 
+  addLink("preconnect", "https://cdn.jsdelivr.net", { crossOrigin: "anonymous" });
+  addLink("preconnect", "https://storage.googleapis.com", { crossOrigin: "anonymous" });
   loadStylesheet("./preview-frame.css?v=3", "data-framelab-preview-fix");
 
   if (document.getElementById("orig-file") && document.getElementById("preview-area")) {
-    setupFastDemoLoader();
+    setupStreamingDemoLoader();
     loadScript("./progressive-preview.js?v=1", "data-framelab-progressive-preview");
   }
 
@@ -247,5 +186,6 @@
     loadStylesheet("./live-toolbar.css?v=2", "data-framelab-live-toolbar");
     loadScript("./live-toolbar.js?v=1", "data-framelab-live-toolbar");
     loadModuleScript("./live-hero-fx.mjs?v=1", "data-framelab-live-hero-fx");
+    loadModuleScript("./live-release-guard.mjs?v=1", "data-framelab-live-release-guard");
   }
 })();

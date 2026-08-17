@@ -368,10 +368,19 @@ function create3DSignal(hands, options, quad, trackMotion) {
     };
   }
 
+  const normalizedQuad = quad
+    ? quad.map((point) => ({
+        x: point.x / options.width,
+        y: point.y / options.height,
+      }))
+    : null;
+
   return {
     version: 1,
     timestamp,
     handCount: hands.length,
+    quadValid: Boolean(normalizedQuad),
+    quad: normalizedQuad,
     hands: handInfos,
     pinch: dominantPinch || { handIndex: -1, strength: 0, x: 0.5, y: 0.5, z: 0, tiltZ: 0 },
     swipe: dominantSwipe || {
@@ -425,22 +434,76 @@ function publishSignal(signal) {
   }
 }
 
-export function resetGesture3DTracking() {
+function createEmptyGestureSignal(options = {}) {
+  const timestamp = gestureTimestamp(options);
+  return {
+    version: 1,
+    timestamp,
+    handCount: 0,
+    quadValid: false,
+    quad: null,
+    hands: [],
+    pinch: { handIndex: -1, strength: 0, x: 0.5, y: 0.5, z: 0, tiltZ: 0 },
+    swipe: {
+      handIndex: -1,
+      strength: 0,
+      axis: "x",
+      direction: 0,
+      x: 0.5,
+      y: 0.5,
+      z: 0,
+      vx: 0,
+      vy: 0,
+      vz: 0,
+      speed: 0,
+    },
+    frame: {
+      valid: false,
+      quad: null,
+      depth: 0,
+      depthDelta: 0,
+      depthSpread: 0,
+      cornerDepths: [],
+    },
+  };
+}
+
+function publishEmptySignal(options = {}) {
+  publishSignal(createEmptyGestureSignal(options));
+}
+
+function clearMotionTracking() {
   motionHistory = [];
   motionTimestamp = null;
+}
+
+export function resetGesture3DTracking() {
+  clearMotionTracking();
   if (typeof globalThis !== "undefined") delete globalThis.FRAMELAB_GESTURE_3D;
 }
 
 export function computeGesture3DSignals(hands, options = {}) {
   const normalized = normalizedOptions(options);
-  if (!validGestureInput(hands, normalized)) return null;
+  if (!Array.isArray(hands) || hands.length === 0) {
+    clearMotionTracking();
+    return createEmptyGestureSignal(normalized);
+  }
+  if (!validGestureInput(hands, normalized)) return createEmptyGestureSignal(normalized);
   const quad = computeQuadInternal(hands, normalized);
   return create3DSignal(hands, normalized, quad, false);
 }
 
 export function computeGestureQuad(hands, options = {}) {
   const normalized = normalizedOptions(options);
-  if (!validGestureInput(hands, normalized)) return null;
+  if (!Array.isArray(hands) || hands.length === 0) {
+    clearMotionTracking();
+    publishEmptySignal(normalized);
+    return null;
+  }
+  if (!validGestureInput(hands, normalized)) {
+    publishEmptySignal(normalized);
+    return null;
+  }
   const quad = computeQuadInternal(hands, normalized);
   publishSignal(create3DSignal(hands, normalized, quad, true));
   return quad;
