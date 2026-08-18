@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { computeGestureQuad } from "../gesture-frame.mjs";
+import { computeGestureQuad, computeGestureZones } from "../gesture-frame.mjs";
 
 const WIDTH = 1000;
 const HEIGHT = 800;
@@ -86,8 +86,40 @@ function legacyFrameHands() {
   ];
 }
 
+function multiFingerHands() {
+  return [
+    handWith({
+      0: [0.24, 0.76],
+      4: [0.17, 0.64],
+      8: [0.23, 0.48],
+      12: [0.27, 0.34],
+      16: [0.31, 0.22],
+      20: [0.36, 0.13],
+      9: [0.26, 0.56],
+    }),
+    handWith({
+      0: [0.76, 0.76],
+      4: [0.83, 0.64],
+      8: [0.77, 0.48],
+      12: [0.73, 0.34],
+      16: [0.69, 0.22],
+      20: [0.64, 0.13],
+      9: [0.74, 0.56],
+    }),
+  ];
+}
+
 function compute(hands, active = false) {
   return computeGestureQuad(hands, {
+    active,
+    width: WIDTH,
+    height: HEIGHT,
+  });
+}
+
+function computeZones(mode, hands = multiFingerHands(), active = false) {
+  return computeGestureZones(hands, {
+    mode,
     active,
     width: WIDTH,
     height: HEIGHT,
@@ -123,4 +155,27 @@ test("does not treat a one-hand two-finger pose as a five-finger frame", () => {
   for (const tip of [4, 12, 16, 20]) pose[tip] = point(0.5, 0.65);
 
   assert.equal(compute([pose]), null);
+});
+
+test("creates one zone in two-finger mode", () => {
+  const zones = computeZones("two");
+  assert.equal(zones?.length, 1);
+  assert.equal(zones?.[0].length, 4);
+});
+
+test("creates two zones in three-finger mode", () => {
+  assert.equal(computeZones("three")?.length, 2);
+});
+
+test("creates three zones in four-finger mode", () => {
+  assert.equal(computeZones("four")?.length, 3);
+});
+
+test("creates four zones in five-finger mode", () => {
+  assert.equal(computeZones("five")?.length, 4);
+});
+
+test("single mode uses one open hand and rejects a closed hand", () => {
+  assert.equal(computeZones("single", [openHand()])?.length, 1);
+  assert.equal(computeZones("single", [closedHand()]), null);
 });
