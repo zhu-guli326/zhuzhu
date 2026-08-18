@@ -76,7 +76,11 @@ function computeTwoHandZones(hands, options, toPixel, fingertipIds) {
   info.sort((a, b) => a.wristX - b.wristX);
   const [left, right] = info;
 
-  const requiredSpread = options.active ? 0.16 : 0.42;
+  // Selected mode decides which fingertips create the zones. Keep this gate
+  // deliberately forgiving: MediaPipe still knows every fingertip even when
+  // a hand is not perfectly posed, and strict spread thresholds made 3/4/5
+  // finger modes appear to do nothing on real cameras.
+  const requiredSpread = options.active ? 0.04 : 0.08;
   for (const hand of info) {
     for (let index = 0; index < hand.tips.length - 1; index += 1) {
       if (dist(hand.tips[index], hand.tips[index + 1]) < hand.scale * requiredSpread) {
@@ -85,7 +89,7 @@ function computeTwoHandZones(hands, options, toPixel, fingertipIds) {
     }
   }
 
-  const minArea = options.active ? 0.00018 : 0.0011;
+  const minArea = options.active ? 0.00004 : 0.00012;
   const zones = [];
   for (let index = 0; index < fingertipIds.length - 1; index += 1) {
     const quad = sortAroundCenter([
@@ -94,10 +98,10 @@ function computeTwoHandZones(hands, options, toPixel, fingertipIds) {
       right.tips[index + 1],
       left.tips[index + 1],
     ]);
-    if (polygonArea(quad) < options.width * options.height * minArea) return null;
+    if (polygonArea(quad) < options.width * options.height * minArea) continue;
     zones.push(quad);
   }
-  return zones;
+  return zones.length === fingertipIds.length - 1 ? zones : null;
 }
 
 function computeTwoHandQuad(hands, options, toPixel) {
