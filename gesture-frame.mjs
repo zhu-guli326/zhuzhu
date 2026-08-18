@@ -22,6 +22,13 @@ const FINGERS = [
   [PINKY_MCP, PINKY_PIP, PINKY_TIP],
 ];
 
+const MODE_FINGERTIPS = {
+  two: [THUMB_TIP, INDEX_TIP],
+  three: [THUMB_TIP, INDEX_TIP, MIDDLE_TIP],
+  four: [THUMB_TIP, INDEX_TIP, MIDDLE_TIP, RING_TIP],
+  five: [THUMB_TIP, INDEX_TIP, MIDDLE_TIP, RING_TIP, PINKY_TIP],
+};
+
 function dist(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
@@ -43,6 +50,56 @@ function makePixelMapper(width, height, mirrorX) {
   });
 }
 
+function sortAroundCenter(points) {
+  const center = points.reduce(
+    (sum, point) => ({
+      x: sum.x + point.x / points.length,
+      y: sum.y + point.y / points.length,
+    }),
+    { x: 0, y: 0 }
+  );
+  return [...points].sort(
+    (a, b) =>
+      Math.atan2(a.y - center.y, a.x - center.x) -
+      Math.atan2(b.y - center.y, b.x - center.x)
+  );
+}
+
+function computeTwoHandZones(hands, options, toPixel, fingertipIds) {
+  if (hands.length < 2 || fingertipIds.length < 2) return null;
+
+  const info = hands.slice(0, 2).map((landmarks) => ({
+    wristX: toPixel(landmarks[WRIST]).x,
+    scale: dist(toPixel(landmarks[WRIST]), toPixel(landmarks[MIDDLE_MCP])) + 1,
+    tips: fingertipIds.map((id) => toPixel(landmarks[id])),
+  }));
+  info.sort((a, b) => a.wristX - b.wristX);
+  const [left, right] = info;
+
+  const requiredSpread = options.active ? 0.16 : 0.42;
+  for (const hand of info) {
+    for (let index = 0; index < hand.tips.length - 1; index += 1) {
+      if (dist(hand.tips[index], hand.tips[index + 1]) < hand.scale * requiredSpread) {
+        return null;
+      }
+    }
+  }
+
+  const minArea = options.active ? 0.00018 : 0.0011;
+  const zones = [];
+  for (let index = 0; index < fingertipIds.length - 1; index += 1) {
+    const quad = sortAroundCenter([
+      left.tips[index],
+      right.tips[index],
+      right.tips[index + 1],
+      left.tips[index + 1],
+    ]);
+    if (polygonArea(quad) < options.width * options.height * minArea) return null;
+    zones.push(quad);
+  }
+  return zones;
+}
+
 function computeTwoHandQuad(hands, options, toPixel) {
   const info = hands.map((landmarks) => ({
     index: toPixel(landmarks[INDEX_TIP]),
@@ -58,15 +115,7 @@ function computeTwoHandQuad(hands, options, toPixel) {
   info.sort((a, b) => a.wristX - b.wristX);
   const [left, right] = info;
   const quad = [left.index, right.index, right.thumb, left.thumb];
-  const center = quad.reduce(
-    (sum, point) => ({ x: sum.x + point.x / 4, y: sum.y + point.y / 4 }),
-    { x: 0, y: 0 }
-  );
-  const hull = [...quad].sort(
-    (a, b) =>
-      Math.atan2(a.y - center.y, a.x - center.x) -
-      Math.atan2(b.y - center.y, b.x - center.x)
-  );
+  const hull = sortAroundCenter(quad);
   const minArea = options.active ? 0.0005 : 0.005;
   return polygonArea(hull) >= options.width * options.height * minArea ? quad : null;
 }
@@ -171,7 +220,7 @@ function computeOpenHandQuad(landmarks, options, toPixel) {
   ];
 }
 
-export function computeGestureQuad(hands, options = {}) {
+function normalizeOptions(hands, options) {
   const width = Number(options.width);
   const height = Number(options.height);
   if (!Array.isArray(hands) || !Number.isFinite(width) || !Number.isFinite(height)) {
@@ -180,13 +229,47 @@ export function computeGestureQuad(hands, options = {}) {
   if (width <= 0 || height <= 0 || !hands.every((hand) => hand?.length >= 21)) {
     return null;
   }
-
-  const normalizedOptions = {
+  return {
     active: Boolean(options.active),
     width,
     height,
+    mode: options.mode || "two",
+    mirrorX: Boolean(options.mirrorX),
   };
-  const toPixel = makePixelMapper(width, height, Boolean(options.mirrorX));
+}
+
+export function computeGestureZones(hands, options = {}) {
+  const normalizedOptions = normalizeOptions(hands, options);
+  if (!normalizedOptions) return null;
+
+  const toPixel = makePixelMapper(
+    normalizedOptions.width,
+    normalizedOptions.height,
+    normalizedOptions.mirrorX
+  );
+
+  if (normalizedOptions.mode === "single") {
+    for (const hand of hands) {
+      const quad = computeOpenHandQuad(hand, normalizedOptions, toPixel);
+      if (quad) return [quad];
+    }
+    return null;
+  }
+
+  const fingertipIds = MODE_FINGERTIPS[normalizedOptions.mode];
+  if (!fingertipIds) return null;
+  return computeTwoHandZones(hands, normalizedOptions, toPixel, fingertipIds);
+}
+
+export function computeGestureQuad(hands, options = {}) {
+  const normalizedOptions = normalizeOptions(hands, options);
+  if (!normalizedOptions) return null;
+  const toPixel = makePixelMapper(
+    normalizedOptions.width,
+    normalizedOptions.height,
+    normalizedOptions.mirrorX
+  );
+
   if (hands.length === 2) {
     return computeTwoHandQuad(hands, normalizedOptions, toPixel);
   }
