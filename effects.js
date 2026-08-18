@@ -1,4 +1,16 @@
 (function () {
+  // The live camera now defaults to the finger-mode experience. Keep
+  // ?legacy=1 as an escape hatch while the new interaction is being tested.
+  const params = new URLSearchParams(location.search);
+  if (
+    /\/live\.html$/i.test(location.pathname) &&
+    !params.has("legacy") &&
+    !location.pathname.endsWith("/live-finger.html")
+  ) {
+    location.replace(`./live-finger.html${location.search}${location.hash}`);
+    return;
+  }
+
   window.FRAMELAB_EFFECTS = [
     { id: "glitch", labelKey: "effectGlitch", zh: "故障闪切", en: "Glitch Cut" },
     { id: "scan", labelKey: "effectScan", zh: "霓虹扫描", en: "Neon Scan" },
@@ -36,9 +48,7 @@
     loadScript("./progressive-preview.js?v=1", "data-framelab-progressive-preview");
   }
 
-  // live.html already has #toolbar in the DOM before effects.js executes.
-  // Convert the large button matrix into a compact dropdown without touching
-  // the existing effect engine, recording flow, analytics, or keyboard shortcuts.
+  // Legacy live.html only. The new live-finger.html owns its controls itself.
   if (document.getElementById("toolbar")) {
     loadStylesheet("./live-toolbar.css?v=2", "data-framelab-live-toolbar");
     loadScript("./live-toolbar.js?v=1", "data-framelab-live-toolbar");
