@@ -47,7 +47,7 @@ html.embedded #stage canvas {
   padding: 7px !important;
   overflow: visible !important;
   border-radius: 16px !important;
-  background: rgba(18, 18, 22, .72) !important;
+  background: #0e0e12 !important; background: rgba(14,14,18,.88) !important;
   border: 1px solid rgba(255, 255, 255, .13) !important;
   box-shadow: 0 14px 36px rgba(0, 0, 0, .22) !important;
   backdrop-filter: blur(16px) !important;
@@ -71,7 +71,7 @@ html.embedded #stage canvas {
   top: 50%;
   right: 14px;
   transform: translateY(-58%);
-  color: rgba(255, 255, 255, .68);
+  color: #fff; text-shadow: 0 0 6px rgba(0,0,0,.5);
   font-size: 18px;
   line-height: 1;
   pointer-events: none;
@@ -82,8 +82,8 @@ html.embedded #stage canvas {
   z-index: 1;
   left: 13px;
   top: 6px;
-  color: rgba(255, 255, 255, .46);
-  font-size: 9px;
+  color: rgba(255,255,255,.78); text-shadow: 0 0 6px rgba(0,0,0,.6);
+  font-size: 11px;
   font-weight: 800;
   line-height: 1;
   letter-spacing: .09em;
@@ -101,10 +101,10 @@ html.embedded #stage canvas {
   border-radius: 11px;
   outline: none;
   background: rgba(255, 255, 255, .09);
-  color: #fff;
+  color: #fff; text-shadow: 0 0 6px rgba(0,0,0,.5);
   padding: 15px 42px 4px 13px;
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 750;
   cursor: pointer;
 }
@@ -120,7 +120,7 @@ html.embedded #stage canvas {
 
 #toolbar #effect-select option {
   background: #1b1b20;
-  color: #fff;
+  color: #fff; text-shadow: 0 0 6px rgba(0,0,0,.5);
 }
 
 #toolbar button.record-button {
@@ -147,7 +147,7 @@ html.embedded #stage canvas {
 
   #toolbar #effect-select {
     height: 44px;
-    font-size: 12px;
+    font-size: 13px;
     padding-right: 34px;
   }
 
