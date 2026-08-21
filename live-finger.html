@@ -15,21 +15,21 @@
    .control option{background-color:#1b1b20!important;color:#f7f7f8!important;font-size:16px;font-weight:700;text-shadow:none}
    .control option:checked{background:#2567cf!important;color:#fff!important}
    .wrap{position:relative}.label{position:absolute;z-index:2;left:12px;top:6px;font-size:12px;font-weight:800;letter-spacing:.08em;color:rgba(255,255,255,.92);pointer-events:none;text-shadow:0 1px 6px rgba(0,0,0,.8)}.wrap:after{content:"⌄";position:absolute;right:13px;top:14px;color:rgba(255,255,255,.92);font-size:15px;pointer-events:none;text-shadow:0 1px 6px rgba(0,0,0,.8)}
-   #effect-wrap{display:none}.single #effect-wrap{display:block}.multi #effect-wrap{display:none}
+   #effect-wrap{display:none}.single #effect-wrap,.two #effect-wrap{display:block}
    button{height:48px;border-radius:11px;border:1px solid rgba(255,255,255,.14);background:rgba(28,28,34,.95);color:#fff;padding:0 16px;font:inherit;font-size:15px;font-weight:750;text-shadow:0 1px 6px rgba(0,0,0,.7);cursor:pointer}button:hover,.control:hover{background:rgba(255,255,255,.18)}
-   #reroll{display:none}.multi #reroll{display:block}#record{border-color:rgba(255,90,90,.5);background:rgba(130,25,25,.85)}#record.on{background:#d93434}
+   #reroll{display:none}.three #reroll,.four #reroll,.five #reroll{display:block}#record{border-color:rgba(255,90,90,.5);background:rgba(130,25,25,.85)}#record.on{background:#d93434}
    #badge{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:8;padding:9px 14px;border-radius:999px;background:rgba(8,8,10,.7);backdrop-filter:blur(12px);font-size:13px;font-weight:800;letter-spacing:.06em;color:#fff;opacity:0;transition:.25s;text-shadow:0 1px 4px rgba(0,0,0,.5)}#badge.show{opacity:1}
    @media(max-width:640px){#toolbar{width:calc(100vw - 18px);bottom:9px;gap:5px;padding:5px}.control{min-width:0;width:100%;height:46px;font-size:15px;padding-top:16px}.wrap{flex:1 1 0}button{padding:0 10px;height:46px;font-size:15px}#hint{bottom:72px;max-width:calc(100vw - 24px);white-space:normal;text-align:center;font-size:14px}#badge{font-size:13px;padding:7px 12px}}
   </style>
 </head>
-<body class="multi">
+<body class="two">
   <div id="stage"><video id="video" autoplay playsinline muted></video><canvas id="canvas"></canvas></div>
   <div id="status">正在加载实时手势识别…</div>
   <div id="badge"></div>
   <div id="hint">选择模式后，把对应数量的手指张开并让双手进入画面。</div>
   <div id="toolbar">
     <label class="wrap"><span class="label">模式</span><select id="mode" class="control"><option value="two">双指</option><option value="three">三指</option><option value="four">四指</option><option value="five">五指</option><option value="single">单手</option></select></label>
-    <label id="effect-wrap" class="wrap"><span class="label">单手效果</span><select id="single-effect" class="control"></select></label>
+    <label id="effect-wrap" class="wrap"><span id="effect-label" class="label">双指效果</span><select id="selected-effect" class="control"></select></label>
     <button id="reroll" title="重新随机一组效果">↻ 换一组</button>
     <button id="record">● 录制</button>
   </div>
@@ -39,7 +39,7 @@ import { computeGestureZones } from './gesture-frame.mjs';
 const TASKS='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
 const MODEL='https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
 const video=document.querySelector('#video'), canvas=document.querySelector('#canvas'), ctx=canvas.getContext('2d');
-const modeSelect=document.querySelector('#mode'), singleSelect=document.querySelector('#single-effect'), hint=document.querySelector('#hint'), badge=document.querySelector('#badge');
+const modeSelect=document.querySelector('#mode'), effectSelect=document.querySelector('#selected-effect'), effectLabel=document.querySelector('#effect-label'), hint=document.querySelector('#hint'), badge=document.querySelector('#badge');
 const reroll=document.querySelector('#reroll'), record=document.querySelector('#record'), status=document.querySelector('#status');
 const MODE_LABELS={two:'双指',three:'三指',four:'四指',five:'五指',single:'单手'};
 const EFFECT_LABELS={holo:'镭射',mirror:'镜像',warp:'液态',rgb:'RGB',duotone:'双色',negative:'负片',thermal:'热成像',glitch:'故障',raster:'切片',neon:'霓虹',crt:'CRT',mono:'黑白',aura:'Aura',particles:'Particle',distort:'Distortion'};
@@ -50,7 +50,8 @@ const POOLS={
   five:['duotone','holo','neon','mono','rgb','crt','thermal','raster'],
 };
 const SINGLE=['aura','particles','distort','holo','neon','negative'];
-SINGLE.forEach(id=>singleSelect.add(new Option(EFFECT_LABELS[id],id)));
+const SELECTABLE={two:POOLS.two,single:SINGLE};
+function setEffectOptions(next){effectSelect.replaceChildren();SELECTABLE[next].forEach(id=>effectSelect.add(new Option(EFFECT_LABELS[id],id)));effectLabel.textContent=next==='two'?'双指效果':'单手效果'}
 
 let landmarker=null, lastVideoTime=-1, results=null, mode='two', zoneEffects=[], smoothZones=null, presence=0, lost=0, active=false;
 let recorder=null, chunks=[];
@@ -63,10 +64,10 @@ function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
 function centroid(q){return q.reduce((s,p)=>({x:s.x+p.x/q.length,y:s.y+p.y/q.length}),{x:0,y:0})}
 function bbox(q){return{x0:Math.min(...q.map(p=>p.x)),x1:Math.max(...q.map(p=>p.x)),y0:Math.min(...q.map(p=>p.y)),y1:Math.max(...q.map(p=>p.y))}}
 function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
-function roll(){if(mode==='single'){zoneEffects=[singleSelect.value];return}const count={two:1,three:2,four:3,five:4}[mode];const pool=shuffle(POOLS[mode]);while(pool.length<count)pool.push(...shuffle(POOLS[mode]));zoneEffects=pool.slice(0,count);showBadge(`${MODE_LABELS[mode]} · ${zoneEffects.map(x=>EFFECT_LABELS[x]).join(' / ')}`)}
+function roll(){if(SELECTABLE[mode]){zoneEffects=[effectSelect.value];return}const count={three:2,four:3,five:4}[mode];const pool=shuffle(POOLS[mode]);while(pool.length<count)pool.push(...shuffle(POOLS[mode]));zoneEffects=pool.slice(0,count);showBadge(`${MODE_LABELS[mode]} · ${zoneEffects.map(x=>EFFECT_LABELS[x]).join(' / ')}`)}
 function showBadge(text){badge.textContent=text;badge.classList.add('show');clearTimeout(showBadge.t);showBadge.t=setTimeout(()=>badge.classList.remove('show'),1800)}
-function setMode(next){mode=next;document.body.className=mode==='single'?'single':'multi';smoothZones=null;presence=0;lost=0;active=false;roll();hint.textContent=mode==='single'?'每只张开的手都会单独识别，各自套上所选效果。':`保持${MODE_LABELS[mode]}手势；每次进入会随机分配效果。`}
-modeSelect.addEventListener('change',()=>setMode(modeSelect.value));singleSelect.addEventListener('change',()=>{zoneEffects=[singleSelect.value];showBadge(`单手 · ${EFFECT_LABELS[singleSelect.value]}`)});reroll.addEventListener('click',roll);
+function setMode(next){mode=next;document.body.className=mode;if(SELECTABLE[mode])setEffectOptions(mode);smoothZones=null;presence=0;lost=0;active=false;roll();hint.textContent=mode==='single'?'每只张开的手都会单独识别，各自套上所选效果。':mode==='two'?'保持双指手势；可从下方自由选择效果。':`保持${MODE_LABELS[mode]}手势；每次进入会随机分配效果。`}
+modeSelect.addEventListener('change',()=>setMode(modeSelect.value));effectSelect.addEventListener('change',()=>{zoneEffects=[effectSelect.value];showBadge(`${MODE_LABELS[mode]} · ${EFFECT_LABELS[effectSelect.value]}`)});reroll.addEventListener('click',roll);
 
 const fx=document.createElement('canvas'), fctx=fx.getContext('2d',{willReadFrequently:true});
 function source(w,h){if(fx.width!==w||fx.height!==h){fx.width=w;fx.height=h}fctx.clearRect(0,0,w,h);drawCamera(fctx,w,h);return fx}
