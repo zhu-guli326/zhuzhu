@@ -42,14 +42,14 @@ const video=document.querySelector('#video'), canvas=document.querySelector('#ca
 const modeSelect=document.querySelector('#mode'), effectSelect=document.querySelector('#selected-effect'), effectLabel=document.querySelector('#effect-label'), hint=document.querySelector('#hint'), badge=document.querySelector('#badge');
 const reroll=document.querySelector('#reroll'), record=document.querySelector('#record'), status=document.querySelector('#status');
 const MODE_LABELS={two:'双指',three:'三指',four:'四指',five:'五指',single:'单手'};
-const EFFECT_LABELS={holo:'镭射',mirror:'镜像',warp:'液态',rgb:'RGB',retropink:'复古粉色点阵',duotone:'双色',negative:'负片',thermal:'热成像',glitch:'故障',raster:'切片',neon:'霓虹',crt:'CRT',mono:'黑白',aura:'Aura',particles:'Particle',distort:'Distortion'};
+const EFFECT_LABELS={mirror:'镜像',warp:'液态',rgb:'RGB',retropink:'复古粉色点阵',duotone:'双色',negative:'负片',thermal:'热成像',glitch:'故障',raster:'切片',neon:'霓虹',crt:'CRT',mono:'黑白',aura:'Aura',particles:'Particle',distort:'Distortion'};
 const POOLS={
-  two:['holo','mirror','warp','rgb','retropink'],
-  three:['rgb','duotone','negative','thermal','holo'],
+  two:['mirror','warp','rgb','retropink'],
+  three:['rgb','duotone','negative','thermal'],
   four:['glitch','raster','neon','crt','rgb','negative'],
-  five:['duotone','holo','neon','mono','rgb','crt','thermal','raster'],
+  five:['duotone','neon','mono','rgb','crt','thermal','raster'],
 };
-const SINGLE=['aura','particles','distort','holo','neon','negative'];
+const SINGLE=['aura','particles','distort','neon','negative'];
 const SELECTABLE={two:POOLS.two,single:SINGLE};
 function setEffectOptions(next){effectSelect.replaceChildren();SELECTABLE[next].forEach(id=>effectSelect.add(new Option(EFFECT_LABELS[id],id)));effectLabel.textContent=next==='two'?'双指效果':'单手效果'}
 
@@ -73,8 +73,7 @@ const fx=document.createElement('canvas'), fctx=fx.getContext('2d',{willReadFreq
 function source(w,h){if(fx.width!==w||fx.height!==h){fx.width=w;fx.height=h}fctx.clearRect(0,0,w,h);drawCamera(fctx,w,h);return fx}
 function filtered(filter,alpha=1,dx=0){ctx.filter=filter;ctx.globalAlpha=alpha;drawCamera(ctx,canvas.width,canvas.height,dx);ctx.filter='none';ctx.globalAlpha=1}
 function effect(id,q,index){const w=canvas.width,h=canvas.height,t=performance.now()/1000,b=bbox(q),c=centroid(q);ctx.save();path(q);ctx.clip();ctx.globalAlpha=presence;
-  if(id==='holo'){filtered('saturate(1.8) contrast(1.15)',.92);ctx.globalCompositeOperation='screen';for(let i=0;i<5;i++){const g=ctx.createLinearGradient(b.x0,b.y0,b.x1,b.y1);g.addColorStop(0,`hsla(${(t*40+i*62)%360},100%,68%,0)`);g.addColorStop(.5,`hsla(${(t*40+i*62+80)%360},100%,70%,.28)`);g.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=g;ctx.fillRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0)}}
-  else if(id==='mirror'){const s=source(w,h);ctx.translate(c.x*2,0);ctx.scale(-1,1);ctx.drawImage(s,0,0)}
+  if(id==='mirror'){const s=source(w,h);ctx.translate(c.x*2,0);ctx.scale(-1,1);ctx.drawImage(s,0,0)}
   else if(id==='warp'||id==='distort'){const s=source(w,h);for(let y=Math.floor(b.y0);y<b.y1;y+=5){const sh=Math.min(6,b.y1-y),shift=Math.sin(y*.035+t*3+index)*18;ctx.drawImage(s,b.x0,y,b.x1-b.x0,sh,b.x0+shift,y,b.x1-b.x0,sh)}}
   else if(id==='rgb'){ctx.globalCompositeOperation='screen';ctx.filter='saturate(2) contrast(1.25) hue-rotate(120deg)';ctx.globalAlpha=.55;drawCamera(ctx,w,h,8);ctx.filter='hue-rotate(245deg)';drawCamera(ctx,w,h,-8);ctx.filter='none';ctx.globalAlpha=.72;drawCamera(ctx,w,h)}
   else if(id==='retropink'){const tw=Math.round(Math.min(420,Math.max(280,w/3.2))),th=Math.max(2,Math.round(tw*h/w)),cell=4;if(dots.width!==tw||dots.height!==th){dots.width=tw;dots.height=th}ctx.fillStyle='#e6a1bf';ctx.fillRect(0,0,w,h);ctx.save();ctx.globalCompositeOperation='multiply';ctx.globalAlpha=.62;ctx.filter='grayscale(1) contrast(1.42) brightness(1.12)';drawCamera(ctx,w,h);ctx.filter='none';ctx.globalCompositeOperation='screen';ctx.globalAlpha=.48;ctx.fillStyle='#ff6cab';ctx.fillRect(0,0,w,h);ctx.restore();dctx.filter='grayscale(1) contrast(1.5)';drawCamera(dctx,tw,th);dctx.filter='none';const d=dctx.getImageData(0,0,tw,th).data,scaleX=w/tw,scaleY=h/th,maxR=Math.max(scaleX,scaleY)*cell*.34;ctx.save();ctx.globalCompositeOperation='multiply';ctx.globalAlpha=.7;for(let y=0;y<th;y+=cell){for(let x=0;x<tw;x+=cell){const sx=Math.min(tw-1,x+(cell>>1)),sy=Math.min(th-1,y+(cell>>1)),p=(sy*tw+sx)*4,lum=(.299*d[p]+.587*d[p+1]+.114*d[p+2])/255,radius=maxR*Math.min(.9,Math.max(.03,(1-lum)*1.04));ctx.beginPath();ctx.fillStyle='#551f55';ctx.arc((x+cell/2)*scaleX,(y+cell/2)*scaleY,radius,0,Math.PI*2);ctx.fill()}}ctx.globalCompositeOperation='screen';ctx.globalAlpha=.24;ctx.fillStyle='#ffecf6';for(let y=(t*34)%10;y<h;y+=10)ctx.fillRect(0,y,w,2);ctx.restore()}
@@ -95,7 +94,7 @@ function outline(q){ctx.save();ctx.globalAlpha=presence;path(q);ctx.lineWidth=1.
 function smooth(target){if(!smoothZones||smoothZones.length!==target.length){smoothZones=target;return}let move=0,n=0;target.forEach((q,zi)=>q.forEach((p,pi)=>{move+=dist(p,smoothZones[zi][pi]);n++}));const alpha=Math.min(.86,Math.max(.3,(move/n)/(canvas.width*.045)));smoothZones=smoothZones.map((q,zi)=>q.map((p,pi)=>lerp(p,target[zi][pi],alpha)))}
 function loop(now){resize();drawCamera();if(video.currentTime!==lastVideoTime){lastVideoTime=video.currentTime;results=landmarker.detectForVideo(video,now)}let zones=null;if(results?.landmarks?.length){zones=computeGestureZones(results.landmarks,{mode,active,width:canvas.width,height:canvas.height,mirrorX:true})}
   if(zones){if(!active){roll();active=true}lost=0;smooth(zones);presence=Math.min(1,presence+.14)}else if(smoothZones&&++lost<18){presence=Math.min(1,presence+.05)}else{presence=Math.max(0,presence-.07);if(!presence){smoothZones=null;active=false}}
-  if(smoothZones&&presence>.01){smoothZones.forEach((q,i)=>{effect(zoneEffects[i%zoneEffects.length]||zoneEffects[0]||'holo',q,i);outline(q)})}
+  if(smoothZones&&presence>.01){smoothZones.forEach((q,i)=>{effect(zoneEffects[i%zoneEffects.length]||zoneEffects[0]||'mirror',q,i);outline(q)})}
   hint.style.opacity=presence>.55?.22:1;requestAnimationFrame(loop)}
 
 async function init(){setMode('two');const {HandLandmarker,FilesetResolver}=await import(TASKS);const fileset=await FilesetResolver.forVisionTasks(`${TASKS}/wasm`);landmarker=await HandLandmarker.createFromOptions(fileset,{baseOptions:{modelAssetPath:MODEL,delegate:'GPU'},runningMode:'VIDEO',numHands:2,minHandDetectionConfidence:.3,minHandPresenceConfidence:.3,minTrackingConfidence:.3});const stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:1280},height:{ideal:720},facingMode:'user'},audio:false});video.srcObject=stream;await video.play();resize();status.classList.add('hidden');requestAnimationFrame(loop)}
