@@ -42,9 +42,9 @@ const video=document.querySelector('#video'), canvas=document.querySelector('#ca
 const modeSelect=document.querySelector('#mode'), effectSelect=document.querySelector('#selected-effect'), effectLabel=document.querySelector('#effect-label'), hint=document.querySelector('#hint'), badge=document.querySelector('#badge');
 const reroll=document.querySelector('#reroll'), record=document.querySelector('#record'), status=document.querySelector('#status');
 const MODE_LABELS={two:'双指',three:'三指',four:'四指',five:'五指',single:'单手'};
-const EFFECT_LABELS={holo:'镭射',mirror:'镜像',warp:'液态',rgb:'RGB',duotone:'双色',negative:'负片',thermal:'热成像',glitch:'故障',raster:'切片',neon:'霓虹',crt:'CRT',mono:'黑白',aura:'Aura',particles:'Particle',distort:'Distortion'};
+const EFFECT_LABELS={holo:'镭射',mirror:'镜像',warp:'液态',rgb:'RGB',retropink:'复古粉色点阵',duotone:'双色',negative:'负片',thermal:'热成像',glitch:'故障',raster:'切片',neon:'霓虹',crt:'CRT',mono:'黑白',aura:'Aura',particles:'Particle',distort:'Distortion'};
 const POOLS={
-  two:['holo','mirror','warp','rgb'],
+  two:['holo','mirror','warp','rgb','retropink'],
   three:['rgb','duotone','negative','thermal','holo'],
   four:['glitch','raster','neon','crt','rgb','negative'],
   five:['duotone','holo','neon','mono','rgb','crt','thermal','raster'],
@@ -69,7 +69,7 @@ function showBadge(text){badge.textContent=text;badge.classList.add('show');clea
 function setMode(next){mode=next;document.body.className=mode;if(SELECTABLE[mode])setEffectOptions(mode);smoothZones=null;presence=0;lost=0;active=false;roll();hint.textContent=mode==='single'?'每只张开的手都会单独识别，各自套上所选效果。':mode==='two'?'保持双指手势；可从下方自由选择效果。':`保持${MODE_LABELS[mode]}手势；每次进入会随机分配效果。`}
 modeSelect.addEventListener('change',()=>setMode(modeSelect.value));effectSelect.addEventListener('change',()=>{zoneEffects=[effectSelect.value];showBadge(`${MODE_LABELS[mode]} · ${EFFECT_LABELS[effectSelect.value]}`)});reroll.addEventListener('click',roll);
 
-const fx=document.createElement('canvas'), fctx=fx.getContext('2d',{willReadFrequently:true});
+const fx=document.createElement('canvas'), fctx=fx.getContext('2d',{willReadFrequently:true}), dots=document.createElement('canvas'), dctx=dots.getContext('2d',{willReadFrequently:true});
 function source(w,h){if(fx.width!==w||fx.height!==h){fx.width=w;fx.height=h}fctx.clearRect(0,0,w,h);drawCamera(fctx,w,h);return fx}
 function filtered(filter,alpha=1,dx=0){ctx.filter=filter;ctx.globalAlpha=alpha;drawCamera(ctx,canvas.width,canvas.height,dx);ctx.filter='none';ctx.globalAlpha=1}
 function effect(id,q,index){const w=canvas.width,h=canvas.height,t=performance.now()/1000,b=bbox(q),c=centroid(q);ctx.save();path(q);ctx.clip();ctx.globalAlpha=presence;
@@ -77,6 +77,7 @@ function effect(id,q,index){const w=canvas.width,h=canvas.height,t=performance.n
   else if(id==='mirror'){const s=source(w,h);ctx.translate(c.x*2,0);ctx.scale(-1,1);ctx.drawImage(s,0,0)}
   else if(id==='warp'||id==='distort'){const s=source(w,h);for(let y=Math.floor(b.y0);y<b.y1;y+=5){const sh=Math.min(6,b.y1-y),shift=Math.sin(y*.035+t*3+index)*18;ctx.drawImage(s,b.x0,y,b.x1-b.x0,sh,b.x0+shift,y,b.x1-b.x0,sh)}}
   else if(id==='rgb'){ctx.globalCompositeOperation='screen';ctx.filter='saturate(2) contrast(1.25) hue-rotate(120deg)';ctx.globalAlpha=.55;drawCamera(ctx,w,h,8);ctx.filter='hue-rotate(245deg)';drawCamera(ctx,w,h,-8);ctx.filter='none';ctx.globalAlpha=.72;drawCamera(ctx,w,h)}
+  else if(id==='retropink'){const tw=Math.round(Math.min(420,Math.max(280,w/3.2))),th=Math.max(2,Math.round(tw*h/w)),cell=4;if(dots.width!==tw||dots.height!==th){dots.width=tw;dots.height=th}ctx.fillStyle='#e6a1bf';ctx.fillRect(0,0,w,h);ctx.save();ctx.globalCompositeOperation='multiply';ctx.globalAlpha=.62;ctx.filter='grayscale(1) contrast(1.42) brightness(1.12)';drawCamera(ctx,w,h);ctx.filter='none';ctx.globalCompositeOperation='screen';ctx.globalAlpha=.48;ctx.fillStyle='#ff6cab';ctx.fillRect(0,0,w,h);ctx.restore();dctx.filter='grayscale(1) contrast(1.5)';drawCamera(dctx,tw,th);dctx.filter='none';const d=dctx.getImageData(0,0,tw,th).data,scaleX=w/tw,scaleY=h/th,maxR=Math.max(scaleX,scaleY)*cell*.34;ctx.save();ctx.globalCompositeOperation='multiply';ctx.globalAlpha=.7;for(let y=0;y<th;y+=cell){for(let x=0;x<tw;x+=cell){const sx=Math.min(tw-1,x+(cell>>1)),sy=Math.min(th-1,y+(cell>>1)),p=(sy*tw+sx)*4,lum=(.299*d[p]+.587*d[p+1]+.114*d[p+2])/255,radius=maxR*Math.min(.9,Math.max(.03,(1-lum)*1.04));ctx.beginPath();ctx.fillStyle='#551f55';ctx.arc((x+cell/2)*scaleX,(y+cell/2)*scaleY,radius,0,Math.PI*2);ctx.fill()}}ctx.globalCompositeOperation='screen';ctx.globalAlpha=.24;ctx.fillStyle='#ffecf6';for(let y=(t*34)%10;y<h;y+=10)ctx.fillRect(0,y,w,2);ctx.restore()}
   else if(id==='duotone'){filtered('grayscale(1) contrast(1.75)',1);ctx.globalCompositeOperation='multiply';ctx.fillStyle=index%2?'#ff6da8':'#65e7ff';ctx.fillRect(0,0,w,h);ctx.globalCompositeOperation='screen';ctx.globalAlpha=.45;ctx.fillStyle=index%2?'#472a9d':'#ffb354';ctx.fillRect(0,0,w,h)}
   else if(id==='negative'){filtered('invert(1) hue-rotate(180deg) saturate(2) contrast(1.35)',1)}
   else if(id==='thermal'){filtered('grayscale(1) contrast(2.2)',1);const g=ctx.createLinearGradient(0,b.y1,0,b.y0);g.addColorStop(0,'#16002f');g.addColorStop(.35,'#005cff');g.addColorStop(.65,'#ff1478');g.addColorStop(1,'#fff347');ctx.globalCompositeOperation='screen';ctx.globalAlpha=.78;ctx.fillStyle=g;ctx.fillRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0)}
