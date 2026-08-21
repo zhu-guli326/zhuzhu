@@ -21,6 +21,7 @@ node_modules/
 .DS_Store
 *.log
 *.png
+!demo-poster.png
 *.webm
 *.zip
 .env

@@ -253,11 +253,12 @@ export function computeGestureZones(hands, options = {}) {
   );
 
   if (normalizedOptions.mode === "single") {
+    const zones = [];
     for (const hand of hands) {
       const quad = computeOpenHandQuad(hand, normalizedOptions, toPixel);
-      if (quad) return [quad];
+      if (quad) zones.push(quad);
     }
-    return null;
+    return zones.length > 0 ? zones : null;
   }
 
   const fingertipIds = MODE_FINGERTIPS[normalizedOptions.mode];

@@ -175,7 +175,11 @@ test("creates four zones in five-finger mode", () => {
   assert.equal(computeZones("five")?.length, 4);
 });
 
-test("single mode uses one open hand and rejects a closed hand", () => {
+test("single mode returns two zones for two open hands", () => {
+  assert.equal(computeZones("single", [openHand(), openHand()])?.length, 2);
+});
+
+test("single mode returns one zone for one open hand and rejects a closed hand", () => {
   assert.equal(computeZones("single", [openHand()])?.length, 1);
   assert.equal(computeZones("single", [closedHand()]), null);
 });
